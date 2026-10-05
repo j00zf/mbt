@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
         source: "/dashboard",
         destination: "/admin/dashboard",
       },
+      {
+        source: "/register-internship",
+        destination: "/apply",
+      },
     ];
   },
 };

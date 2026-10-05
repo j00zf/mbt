@@ -144,3 +144,24 @@ export interface Internship {
   created_at: string;
   updated_at?: string | null;
 }
+
+export interface StudentApplication {
+  id: number;
+  internship_id?: number | null;
+  full_name: string;
+  email: string;
+  phone: string;
+  college: string;
+  degree: string;
+  year_of_study: string;
+  school_code: string;
+  school_name: string;
+  duration_model: string;
+  resume_url?: string | null;
+  linkedin_url?: string | null;
+  statement_of_purpose?: string | null;
+  status: "pending" | "under_review" | "shortlisted" | "accepted" | "rejected";
+  notes?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
