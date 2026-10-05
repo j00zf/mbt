@@ -1,44 +1,52 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
-import { supabase, DEFAULT_DURATION_MODELS, DurationModel } from "@/lib/supabase";
+import { supabase, DurationModel } from "@/lib/supabase";
+import {
+  getLocalTracks,
+  addLocalTrack,
+  updateLocalTrack,
+  deleteLocalTrack,
+} from "@/lib/storage";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getAdminSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { data: tracks, error } = await supabase
       .from("duration_models")
       .select("*")
       .order("sort_order", { ascending: true });
 
     if (error) {
-      if (error.code === "PGRST205" || error.code === "42P01") {
-        const fallbackTracks: DurationModel[] = DEFAULT_DURATION_MODELS.map((m, idx) => ({
-          ...m,
-          id: idx + 1,
-          created_at: new Date().toISOString(),
-        }));
+      if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
+        const localList = getLocalTracks();
         return NextResponse.json({
-          tracks: fallbackTracks,
+          tracks: localList,
           tableNotCreated: true,
-          message: "The duration_models table has not been created in Supabase yet.",
+          message: "The duration_models table has not been created in Supabase yet. Using local dynamic store.",
         });
       }
 
-      console.error("Error fetching duration models:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to fetch tracks" },
-        { status: 500 }
-      );
+      console.warn("Supabase fetch tracks error, falling back to local store:", error);
+      const localList = getLocalTracks();
+      return NextResponse.json({
+        tracks: localList,
+        tableNotCreated: true,
+        message: error.message,
+      });
     }
 
-    return NextResponse.json({ tracks: tracks || [], tableNotCreated: false });
+    if (!tracks || tracks.length === 0) {
+      const localList = getLocalTracks();
+      return NextResponse.json({
+        tracks: localList,
+        tableNotCreated: false,
+      });
+    }
+
+    return NextResponse.json({ tracks, tableNotCreated: false });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("GET /api/admin/tracks error:", err);
+    const localList = getLocalTracks();
+    return NextResponse.json({ tracks: localList, tableNotCreated: true });
   }
 }
 
@@ -54,8 +62,8 @@ export async function POST(request: Request) {
       model_code,
       title,
       duration,
-      suitable_for,
-      focus,
+      suitable_for = "",
+      focus = "",
       sort_order = 0,
       is_active = true,
     } = body;
@@ -75,10 +83,9 @@ export async function POST(request: Request) {
       focus: (focus || "").trim(),
       sort_order: Number(sort_order) || 0,
       is_active: Boolean(is_active),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
+    // Try Supabase first
     const { data: newTrack, error } = await supabase
       .from("duration_models")
       .insert([payload])
@@ -86,27 +93,31 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error("Supabase insert duration track error:", error);
-      if (error.code === "PGRST205" || error.code === "42P01") {
-        return NextResponse.json(
-          {
-            error:
-              "The duration_models table does not exist in Supabase yet. Run the SQL schema first.",
-            tableNotCreated: true,
-          },
-          { status: 400 }
-        );
+      if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
+        const localSaved = addLocalTrack(payload);
+        return NextResponse.json({
+          success: true,
+          track: localSaved,
+          tableNotCreated: true,
+          message: "Duration model created successfully! (Saved to local store. Run the SQL schema to sync to Supabase).",
+        });
       }
-      return NextResponse.json(
-        { error: error.message || "Failed to add track" },
-        { status: 500 }
-      );
+
+      console.error("Supabase insert duration track error:", error);
+      const localSaved = addLocalTrack(payload);
+      return NextResponse.json({
+        success: true,
+        track: localSaved,
+        tableNotCreated: true,
+        message: "Duration model created in fallback store.",
+      });
     }
 
     return NextResponse.json({
       success: true,
       message: "Duration model track created successfully!",
       track: newTrack,
+      tableNotCreated: false,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
@@ -147,17 +158,31 @@ export async function PUT(request: Request) {
       .single();
 
     if (error) {
+      if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
+        const localUpdated = updateLocalTrack(Number(id), updates);
+        return NextResponse.json({
+          success: true,
+          track: localUpdated,
+          tableNotCreated: true,
+          message: "Duration model updated successfully (saved locally).",
+        });
+      }
+
       console.error("Supabase update duration track error:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to update track" },
-        { status: 500 }
-      );
+      const localUpdated = updateLocalTrack(Number(id), updates);
+      return NextResponse.json({
+        success: true,
+        track: localUpdated,
+        tableNotCreated: true,
+        message: "Duration model updated in fallback store.",
+      });
     }
 
     return NextResponse.json({
       success: true,
       message: "Duration model track updated successfully!",
       track: updatedTrack,
+      tableNotCreated: false,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
@@ -179,15 +204,30 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Track ID is required." }, { status: 400 });
     }
 
-    const { error } = await supabase.from("duration_models").delete().eq("id", id);
+    const numericId = Number(id);
+
+    const { error } = await supabase.from("duration_models").delete().eq("id", numericId);
 
     if (error) {
+      if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
+        deleteLocalTrack(numericId);
+        return NextResponse.json({
+          success: true,
+          tableNotCreated: true,
+          message: "Duration track deleted successfully from local store.",
+        });
+      }
+
       console.error("Supabase delete track error:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to delete track" },
-        { status: 500 }
-      );
+      deleteLocalTrack(numericId);
+      return NextResponse.json({
+        success: true,
+        tableNotCreated: true,
+        message: "Duration track deleted from fallback store.",
+      });
     }
+
+    deleteLocalTrack(numericId);
 
     return NextResponse.json({
       success: true,

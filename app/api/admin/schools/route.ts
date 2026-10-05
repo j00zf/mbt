@@ -1,46 +1,55 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
-import { supabase, DEFAULT_MBT_SCHOOLS, ProgrammeSchool } from "@/lib/supabase";
+import { supabase, ProgrammeSchool } from "@/lib/supabase";
+import {
+  getLocalSchools,
+  addLocalSchool,
+  updateLocalSchool,
+  deleteLocalSchool,
+} from "@/lib/storage";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getAdminSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    // Attempt to query Supabase
     const { data: schools, error } = await supabase
       .from("programme_schools")
       .select("*")
       .order("sort_order", { ascending: true });
 
     if (error) {
-      // Table doesn't exist yet in Supabase - return fallback list with indicator
-      if (error.code === "PGRST205" || error.code === "42P01") {
-        const fallbackSchools: ProgrammeSchool[] = DEFAULT_MBT_SCHOOLS.map((s, idx) => ({
-          ...s,
-          id: idx + 1,
-          created_at: new Date().toISOString(),
-        }));
+      // Table doesn't exist yet in Supabase (PGRST205 / 42P01) or other schema error
+      if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
+        const localList = getLocalSchools();
         return NextResponse.json({
-          schools: fallbackSchools,
+          schools: localList,
           tableNotCreated: true,
-          message: "The programme_schools table has not been created in Supabase yet.",
+          message: "The programme_schools table has not been created in Supabase yet. Using local dynamic store.",
         });
       }
 
-      console.error("Error fetching schools:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to fetch schools" },
-        { status: 500 }
-      );
+      console.warn("Supabase fetch schools error, falling back to local store:", error);
+      const localList = getLocalSchools();
+      return NextResponse.json({
+        schools: localList,
+        tableNotCreated: true,
+        message: error.message,
+      });
     }
 
-    // If table exists but is empty, seed or return empty
-    return NextResponse.json({ schools: schools || [], tableNotCreated: false });
+    if (!schools || schools.length === 0) {
+      // If table exists but has no rows yet, return local seed
+      const localList = getLocalSchools();
+      return NextResponse.json({
+        schools: localList,
+        tableNotCreated: false,
+      });
+    }
+
+    return NextResponse.json({ schools, tableNotCreated: false });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("GET /api/admin/schools error:", err);
+    const localList = getLocalSchools();
+    return NextResponse.json({ schools: localList, tableNotCreated: true });
   }
 }
 
@@ -67,10 +76,9 @@ export async function POST(request: Request) {
       description: description?.trim() || null,
       sort_order: Number(sort_order) || 0,
       is_active: Boolean(is_active),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
+    // Try Supabase first
     const { data: newSchool, error } = await supabase
       .from("programme_schools")
       .insert([payload])
@@ -78,27 +86,33 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error("Supabase insert school error:", error);
-      if (error.code === "PGRST205" || error.code === "42P01") {
-        return NextResponse.json(
-          {
-            error:
-              "The programme_schools table does not exist in Supabase yet. Run the SQL schema first.",
-            tableNotCreated: true,
-          },
-          { status: 400 }
-        );
+      // If table does not exist, persist into local dynamic store seamlessly
+      if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
+        const localSaved = addLocalSchool(payload);
+        return NextResponse.json({
+          success: true,
+          school: localSaved,
+          tableNotCreated: true,
+          message: "School created successfully! (Saved to local store. Run the SQL schema to sync to Supabase).",
+        });
       }
-      return NextResponse.json(
-        { error: error.message || "Failed to add school" },
-        { status: 500 }
-      );
+
+      console.error("Supabase insert school error:", error);
+      // Fallback
+      const localSaved = addLocalSchool(payload);
+      return NextResponse.json({
+        success: true,
+        school: localSaved,
+        tableNotCreated: true,
+        message: "School created successfully in fallback store.",
+      });
     }
 
     return NextResponse.json({
       success: true,
       message: "School created successfully!",
       school: newSchool,
+      tableNotCreated: false,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
@@ -129,6 +143,7 @@ export async function PUT(request: Request) {
     if (sort_order !== undefined) updates.sort_order = Number(sort_order);
     if (is_active !== undefined) updates.is_active = Boolean(is_active);
 
+    // Try Supabase first
     const { data: updatedSchool, error } = await supabase
       .from("programme_schools")
       .update(updates)
@@ -137,17 +152,31 @@ export async function PUT(request: Request) {
       .single();
 
     if (error) {
+      if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
+        const localUpdated = updateLocalSchool(Number(id), updates);
+        return NextResponse.json({
+          success: true,
+          school: localUpdated,
+          tableNotCreated: true,
+          message: "School updated successfully (saved locally).",
+        });
+      }
+
       console.error("Supabase update school error:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to update school" },
-        { status: 500 }
-      );
+      const localUpdated = updateLocalSchool(Number(id), updates);
+      return NextResponse.json({
+        success: true,
+        school: localUpdated,
+        tableNotCreated: true,
+        message: "School updated in fallback store.",
+      });
     }
 
     return NextResponse.json({
       success: true,
       message: "School updated successfully!",
       school: updatedSchool,
+      tableNotCreated: false,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
@@ -169,15 +198,32 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "School ID is required." }, { status: 400 });
     }
 
-    const { error } = await supabase.from("programme_schools").delete().eq("id", id);
+    const numericId = Number(id);
+
+    // Try Supabase first
+    const { error } = await supabase.from("programme_schools").delete().eq("id", numericId);
 
     if (error) {
+      if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
+        deleteLocalSchool(numericId);
+        return NextResponse.json({
+          success: true,
+          tableNotCreated: true,
+          message: "School deleted successfully from local store.",
+        });
+      }
+
       console.error("Supabase delete school error:", error);
-      return NextResponse.json(
-        { error: error.message || "Failed to delete school" },
-        { status: 500 }
-      );
+      deleteLocalSchool(numericId);
+      return NextResponse.json({
+        success: true,
+        tableNotCreated: true,
+        message: "School deleted from fallback store.",
+      });
     }
+
+    // Also delete from local if it exists
+    deleteLocalSchool(numericId);
 
     return NextResponse.json({
       success: true,

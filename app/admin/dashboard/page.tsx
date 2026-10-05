@@ -39,6 +39,8 @@ import {
   Mail,
   Phone,
   MessageSquare,
+  AlertCircle,
+  HelpCircle,
 } from "lucide-react";
 import {
   type Internship,
@@ -104,7 +106,7 @@ interface TrackFormData {
 export default function AdminDashboardPage() {
   const router = useRouter();
 
-  // Navigation sidebar item
+  // Navigation sidebar tab
   const [activeTab, setActiveTab] = useState<
     "internships" | "applications" | "schools" | "tracks" | "admins" | "schema"
   >("internships");
@@ -118,24 +120,29 @@ export default function AdminDashboardPage() {
   const [tracks, setTracks] = useState<DurationModel[]>([]);
   const [applications, setApplications] = useState<StudentApplication[]>([]);
 
+  // Tables state notice
   const [tableNotCreated, setTableNotCreated] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
 
-  // Filters for internships
+  // Search & filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [schoolFilter, setSchoolFilter] = useState<string>("all");
   const [modelFilter, setModelFilter] = useState<string>("all");
   const [workplaceFilter, setWorkplaceFilter] = useState<string>("all");
 
-  // Filters for applications
   const [appSearchQuery, setAppSearchQuery] = useState("");
   const [appStatusFilter, setAppStatusFilter] = useState<string>("all");
   const [appSchoolFilter, setAppSchoolFilter] = useState<string>("all");
+
+  const [schoolSearchQuery, setSchoolSearchQuery] = useState("");
+  const [trackSearchQuery, setTrackSearchQuery] = useState("");
 
   // Loading states
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Modals - Internships
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -164,9 +171,10 @@ export default function AdminDashboardPage() {
     status: "active",
   });
 
-  // Modals - Schools
+  // Modals - Schools (16 Discipline Architecture)
   const [isSchoolAddModalOpen, setIsSchoolAddModalOpen] = useState(false);
   const [isSchoolEditModalOpen, setIsSchoolEditModalOpen] = useState(false);
+  const [isSchoolDeleteModalOpen, setIsSchoolDeleteModalOpen] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState<ProgrammeSchool | null>(null);
   const [schoolForm, setSchoolForm] = useState<SchoolFormData>({
     code: "",
@@ -176,9 +184,10 @@ export default function AdminDashboardPage() {
     is_active: true,
   });
 
-  // Modals - Tracks
+  // Modals - Tracks (5 Duration Models)
   const [isTrackAddModalOpen, setIsTrackAddModalOpen] = useState(false);
   const [isTrackEditModalOpen, setIsTrackEditModalOpen] = useState(false);
+  const [isTrackDeleteModalOpen, setIsTrackDeleteModalOpen] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<DurationModel | null>(null);
   const [trackForm, setTrackForm] = useState<TrackFormData>({
     model_code: "Model F",
@@ -196,17 +205,14 @@ export default function AdminDashboardPage() {
   const [isAppDeleteModalOpen, setIsAppDeleteModalOpen] = useState(false);
   const [appNotes, setAppNotes] = useState("");
 
-  const [formError, setFormError] = useState<string | null>(null);
-
   // Copy states
   const [copiedInternshipSql, setCopiedInternshipSql] = useState(false);
   const [copiedSchoolSql, setCopiedSchoolSql] = useState(false);
   const [copiedTrackSql, setCopiedTrackSql] = useState(false);
   const [copiedAppSql, setCopiedAppSql] = useState(false);
   const [copiedAdminSql, setCopiedAdminSql] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
 
-  // SQL Definitions
+  // SQL Definitions for Schema Tab
   const applicationsTableSql = `create table public.internship_applications (
   id bigint generated always as identity not null,
   internship_id bigint null references public.internships(id) on delete set null,
@@ -322,8 +328,32 @@ on conflict (model_code) do nothing;
 alter table public.duration_models enable row level security;
 create policy "Allow all operations for duration_models" on public.duration_models for all using (true) with check (true);`;
 
-  // Init Data
+  const adminsTableSql = `create table public.admins (
+  id bigint generated always as identity not null,
+  name text not null,
+  email text not null,
+  password text not null,
+  created_at timestamp with time zone null default timezone ('utc'::text, now()),
+  constraint admins_pkey primary key (id),
+  constraint admins_email_key unique (email)
+) TABLESPACE pg_default;
+
+alter table public.admins enable row level security;
+create policy "Allow all operations for admins" on public.admins for all using (true) with check (true);`;
+
+  // Init Data & Check URL param for tab
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (
+        tabParam &&
+        ["internships", "applications", "schools", "tracks", "admins", "schema"].includes(tabParam)
+      ) {
+        setActiveTab(tabParam as any);
+      }
+    }
+
     async function init() {
       try {
         const authRes = await fetch("/api/auth/me");
@@ -356,6 +386,11 @@ create policy "Allow all operations for duration_models" on public.duration_mode
     init();
   }, [router]);
 
+  const showToast = (msg: string) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(null), 3500);
+  };
+
   const fetchInternships = async () => {
     setRefreshing(true);
     try {
@@ -363,7 +398,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
       if (res.ok) {
         const data = await res.json();
         setInternships(data.internships || []);
-        setTableNotCreated(Boolean(data.tableNotCreated));
+        if (data.tableNotCreated) setTableNotCreated(true);
       }
     } catch (err) {
       console.error("Failed to fetch internships:", err);
@@ -459,7 +494,9 @@ create policy "Allow all operations for duration_models" on public.duration_mode
     }
   };
 
-  // Open Internship Add Modal
+  // ==========================================
+  // INTERNSHIP ACTIONS
+  // ==========================================
   const openAddInternshipModal = (prefillSchoolCode?: string) => {
     const targetSchool = prefillSchoolCode
       ? schools.find((s) => s.code === prefillSchoolCode)
@@ -497,7 +534,32 @@ create policy "Allow all operations for duration_models" on public.duration_mode
     setIsAddModalOpen(true);
   };
 
-  // Submit Internship Create
+  const openEditInternshipModal = (item: Internship) => {
+    setSelectedInternship(item);
+    setInternshipForm({
+      title: item.title,
+      school_code: item.school_code,
+      school_name: item.school_name,
+      duration_model: item.duration_model,
+      duration_hours_months: item.duration_hours_months,
+      target_audience: item.target_audience || "",
+      project_focus: item.project_focus || "",
+      location: item.location,
+      workplace_type: item.workplace_type,
+      internship_type: item.internship_type,
+      stipend: item.stipend,
+      openings: item.openings,
+      description: item.description,
+      requirements: item.requirements || "",
+      responsibilities: item.responsibilities || "",
+      skills: Array.isArray(item.skills) ? item.skills.join(", ") : (item.skills || ""),
+      deadline: item.deadline ? item.deadline.substring(0, 10) : "",
+      status: item.status,
+    });
+    setFormError(null);
+    setIsEditModalOpen(true);
+  };
+
   const handleInternshipCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -519,6 +581,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
 
       setIsAddModalOpen(false);
       await fetchInternships();
+      showToast("Internship posting created successfully!");
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -526,7 +589,6 @@ create policy "Allow all operations for duration_models" on public.duration_mode
     }
   };
 
-  // Submit Internship Edit
   const handleInternshipEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInternship) return;
@@ -548,6 +610,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
 
       setIsEditModalOpen(false);
       await fetchInternships();
+      showToast("Internship posting updated successfully!");
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -555,7 +618,6 @@ create policy "Allow all operations for duration_models" on public.duration_mode
     }
   };
 
-  // Submit Internship Delete
   const handleInternshipDelete = async () => {
     if (!selectedInternship) return;
     setActionLoading(true);
@@ -566,6 +628,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
       if (!res.ok) throw new Error("Failed to delete.");
       setIsDeleteModalOpen(false);
       await fetchInternships();
+      showToast("Internship posting deleted.");
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to delete.");
     } finally {
@@ -573,7 +636,244 @@ create policy "Allow all operations for duration_models" on public.duration_mode
     }
   };
 
-  // Update Application Status
+  // ==========================================
+  // SCHOOLS ACTIONS (16 Schools Dynamic CRUD)
+  // ==========================================
+  const openAddSchoolModal = () => {
+    // Generate next available code if sequential
+    const currentCodes = schools.map((s) => s.code.toUpperCase());
+    let nextLetter = "Q";
+    for (let i = 65; i <= 90; i++) {
+      const letter = String.fromCharCode(i);
+      if (!currentCodes.includes(letter)) {
+        nextLetter = letter;
+        break;
+      }
+    }
+
+    setSchoolForm({
+      code: nextLetter,
+      name: "",
+      description: "",
+      sort_order: schools.length + 1,
+      is_active: true,
+    });
+    setFormError(null);
+    setIsSchoolAddModalOpen(true);
+  };
+
+  const openEditSchoolModal = (school: ProgrammeSchool) => {
+    setSelectedSchool(school);
+    setSchoolForm({
+      code: school.code,
+      name: school.name,
+      description: school.description || "",
+      sort_order: school.sort_order,
+      is_active: school.is_active,
+    });
+    setFormError(null);
+    setIsSchoolEditModalOpen(true);
+  };
+
+  const handleSchoolCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    if (!schoolForm.code.trim() || !schoolForm.name.trim()) {
+      setFormError("School Code (e.g. 'A') and School Name are required.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/schools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(schoolForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create school.");
+
+      setIsSchoolAddModalOpen(false);
+      await fetchSchools();
+      showToast(`School ${schoolForm.code} created successfully!`);
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSchoolEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSchool) return;
+    setFormError(null);
+    if (!schoolForm.code.trim() || !schoolForm.name.trim()) {
+      setFormError("School Code and Name are required.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/schools", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedSchool.id,
+          ...schoolForm,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update school.");
+
+      setIsSchoolEditModalOpen(false);
+      await fetchSchools();
+      showToast(`School ${schoolForm.code} updated successfully!`);
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSchoolDelete = async () => {
+    if (!selectedSchool) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/schools?id=${selectedSchool.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete school.");
+      setIsSchoolDeleteModalOpen(false);
+      await fetchSchools();
+      showToast(`School ${selectedSchool.code} deleted.`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete school.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ==========================================
+  // TRACKS ACTIONS (5 Duration Models Dynamic CRUD)
+  // ==========================================
+  const openAddTrackModal = () => {
+    const nextModelNum = tracks.length + 1;
+    const modelLetters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+    const modelSuffix = modelLetters[tracks.length] || `Track ${nextModelNum}`;
+
+    setTrackForm({
+      model_code: `Model ${modelSuffix}`,
+      title: "",
+      duration: "",
+      suitable_for: "",
+      focus: "",
+      sort_order: nextModelNum,
+      is_active: true,
+    });
+    setFormError(null);
+    setIsTrackAddModalOpen(true);
+  };
+
+  const openEditTrackModal = (track: DurationModel) => {
+    setSelectedTrack(track);
+    setTrackForm({
+      model_code: track.model_code,
+      title: track.title,
+      duration: track.duration,
+      suitable_for: track.suitable_for || "",
+      focus: track.focus || "",
+      sort_order: track.sort_order,
+      is_active: track.is_active,
+    });
+    setFormError(null);
+    setIsTrackEditModalOpen(true);
+  };
+
+  const handleTrackCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    if (!trackForm.model_code.trim() || !trackForm.title.trim() || !trackForm.duration.trim()) {
+      setFormError("Model code (e.g. 'Model F'), title, and duration are required.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(trackForm),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create duration model.");
+
+      setIsTrackAddModalOpen(false);
+      await fetchTracks();
+      showToast(`${trackForm.model_code} created successfully!`);
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleTrackEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTrack) return;
+    setFormError(null);
+    if (!trackForm.model_code.trim() || !trackForm.title.trim() || !trackForm.duration.trim()) {
+      setFormError("Model code, title, and duration are required.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/tracks", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedTrack.id,
+          ...trackForm,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update duration model.");
+
+      setIsTrackEditModalOpen(false);
+      await fetchTracks();
+      showToast(`${trackForm.model_code} updated successfully!`);
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleTrackDelete = async () => {
+    if (!selectedTrack) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/tracks?id=${selectedTrack.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete duration model.");
+      setIsTrackDeleteModalOpen(false);
+      await fetchTracks();
+      showToast(`${selectedTrack.model_code} deleted.`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete track.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ==========================================
+  // APPLICATIONS ACTIONS
+  // ==========================================
   const handleUpdateAppStatus = async (appId: number, status: string, notes?: string) => {
     try {
       const res = await fetch("/api/admin/applications", {
@@ -584,15 +884,17 @@ create policy "Allow all operations for duration_models" on public.duration_mode
       if (res.ok) {
         await fetchApplications();
         if (selectedApplication && selectedApplication.id === appId) {
-          setSelectedApplication((prev) => (prev ? { ...prev, status: status as any, notes: notes || prev.notes } : null));
+          setSelectedApplication((prev) =>
+            prev ? { ...prev, status: status as any, notes: notes || prev.notes } : null
+          );
         }
+        showToast(`Application #${appId} updated to ${status}.`);
       }
     } catch (err) {
       console.error("Status update error:", err);
     }
   };
 
-  // Delete Application
   const handleAppDelete = async () => {
     if (!selectedApplication) return;
     setActionLoading(true);
@@ -604,6 +906,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
       setIsAppDeleteModalOpen(false);
       setIsAppViewModalOpen(false);
       await fetchApplications();
+      showToast("Application record deleted.");
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to delete application.");
     } finally {
@@ -650,6 +953,28 @@ create policy "Allow all operations for duration_models" on public.duration_mode
     return matchesSearch && matchesStatus && matchesSchool;
   });
 
+  // Filtered schools
+  const filteredSchools = schools.filter((s) => {
+    const q = schoolSearchQuery.toLowerCase();
+    return (
+      s.code.toLowerCase().includes(q) ||
+      s.name.toLowerCase().includes(q) ||
+      (s.description && s.description.toLowerCase().includes(q))
+    );
+  });
+
+  // Filtered tracks
+  const filteredTracks = tracks.filter((t) => {
+    const q = trackSearchQuery.toLowerCase();
+    return (
+      t.model_code.toLowerCase().includes(q) ||
+      t.title.toLowerCase().includes(q) ||
+      t.duration.toLowerCase().includes(q) ||
+      (t.suitable_for && t.suitable_for.toLowerCase().includes(q)) ||
+      (t.focus && t.focus.toLowerCase().includes(q))
+    );
+  });
+
   const activeCount = internships.filter((i) => i.status === "active").length;
   const totalOpenings = internships.reduce((sum, i) => sum + (Number(i.openings) || 0), 0);
 
@@ -672,8 +997,16 @@ create policy "Allow all operations for duration_models" on public.duration_mode
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col md:flex-row selection:bg-emerald-100 selection:text-emerald-900">
+      {/* Toast Notification */}
+      {notification && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-3 rounded-2xl shadow-xl border border-slate-800 flex items-center gap-2.5 animate-bounce-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{notification}</span>
+        </div>
+      )}
+
       {/* =========================================================================
-          LEFT SIDEBAR (Full Control Navigation)
+          LEFT SIDEBAR
       ========================================================================= */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 flex flex-col justify-between transition-transform duration-300 md:static md:translate-x-0 ${
@@ -851,7 +1184,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                 >
                   <div className="flex items-center gap-2.5">
                     <Users className="w-4 h-4" />
-                    <span>Administrators</span>
+                    <span>Admins</span>
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -869,174 +1202,454 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                     setActiveTab("schema");
                     setMobileSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     activeTab === "schema"
                       ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                   }`}
                 >
-                  <Database className="w-4 h-4" />
-                  <span>PostgreSQL Schemas</span>
+                  <div className="flex items-center gap-2.5">
+                    <Database className="w-4 h-4" />
+                    <span>SQL Schemas</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-400">Ready</span>
                 </button>
               </nav>
             </div>
           </div>
         </div>
 
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/60">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
-                {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : "A"}
+        {/* User Card & Logout */}
+        <div className="p-4 border-t border-slate-100">
+          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs shrink-0">
+                {currentUser?.name?.[0]?.toUpperCase() || "A"}
               </div>
-              <div className="truncate text-xs">
-                <div className="font-bold text-slate-800 truncate">{currentUser?.name}</div>
-                <div className="text-[11px] text-slate-400 font-mono truncate">{currentUser?.email}</div>
+              <div className="truncate">
+                <span className="text-xs font-bold text-slate-900 truncate block">
+                  {currentUser?.name || "Admin"}
+                </span>
+                <span className="text-[10px] text-slate-400 truncate block">
+                  {currentUser?.email}
+                </span>
               </div>
             </div>
 
             <button
               onClick={handleLogout}
-              title="Sign out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              title="Sign Out"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
-
-          <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-400">
-            <Link href="/apply" target="_blank" className="hover:text-emerald-700 flex items-center gap-1 font-semibold text-emerald-800">
-              <span>Public Apply Form</span>
-              <ExternalLink className="w-3 h-3" />
-            </Link>
-            <span className="flex items-center gap-1 text-[10px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live
-            </span>
-          </div>
         </div>
       </aside>
-
-      {/* Mobile Backdrop */}
-      {mobileSidebarOpen && (
-        <div
-          onClick={() => setMobileSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs md:hidden"
-        />
-      )}
 
       {/* =========================================================================
           MAIN CONTENT AREA
       ========================================================================= */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header Bar */}
-        <header className="h-16 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        {/* Top Header */}
+        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 md:hidden"
+              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 md:hidden cursor-pointer"
             >
               <Menu className="w-5 h-5" />
             </button>
 
             <div>
-              <h1 className="text-base sm:text-lg font-extrabold text-slate-900 capitalize tracking-tight flex items-center gap-2">
-                {activeTab === "internships" && (
-                  <>
-                    <Briefcase className="w-4 h-4 text-emerald-600" />
-                    <span>Internship Postings</span>
-                  </>
-                )}
-                {activeTab === "applications" && (
-                  <>
-                    <UserCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Registered Student Applications</span>
-                  </>
-                )}
-                {activeTab === "schools" && (
-                  <>
-                    <GraduationCap className="w-4 h-4 text-emerald-600" />
-                    <span>Proposed Programme Structure (16 Schools)</span>
-                  </>
-                )}
-                {activeTab === "tracks" && (
-                  <>
-                    <Target className="w-4 h-4 text-emerald-600" />
-                    <span>Internship Duration Models (5 Tracks)</span>
-                  </>
-                )}
-                {activeTab === "admins" && (
-                  <>
-                    <Users className="w-4 h-4 text-emerald-600" />
-                    <span>System Administrators</span>
-                  </>
-                )}
-                {activeTab === "schema" && (
-                  <>
-                    <Database className="w-4 h-4 text-emerald-600" />
-                    <span>PostgreSQL Database Schemas</span>
-                  </>
-                )}
+              <h1 className="text-base sm:text-lg font-extrabold text-slate-900 capitalize tracking-tight">
+                {activeTab === "internships" && "Internship Openings Management"}
+                {activeTab === "applications" && "Student Applicant Registration"}
+                {activeTab === "schools" && "Proposed Programme Structure (16 Schools)"}
+                {activeTab === "tracks" && "Internship Duration Models (5 Tracks)"}
+                {activeTab === "admins" && "System Administrators"}
+                {activeTab === "schema" && "Supabase SQL Schemas & Seeding"}
               </h1>
+              <p className="text-[11px] text-slate-400 hidden sm:block">
+                Mission Better Tomorrow &bull; Internship Programme Administration
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <Link
+              href="/apply"
+              target="_blank"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:text-emerald-700 transition-colors shadow-2xs"
+            >
+              <span>Public Apply Page</span>
+              <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+            </Link>
+
             {activeTab === "internships" && (
               <button
                 onClick={() => openAddInternshipModal()}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-emerald-600/20 cursor-pointer"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Create Internship</span>
+                <span>New Internship</span>
               </button>
             )}
 
-            {activeTab === "applications" && (
-              <Link
-                href="/apply"
-                target="_blank"
-                className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold px-3.5 py-2 rounded-xl transition-colors"
+            {activeTab === "schools" && (
+              <button
+                onClick={openAddSchoolModal}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>View Public Form</span>
-              </Link>
+                <Plus className="w-4 h-4" />
+                <span>Add School</span>
+              </button>
+            )}
+
+            {activeTab === "tracks" && (
+              <button
+                onClick={openAddTrackModal}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Duration Model</span>
+              </button>
             )}
           </div>
         </header>
 
-        {/* Content Body */}
-        <main className="p-4 sm:p-8 space-y-6 flex-1 max-w-7xl w-full">
+        {/* Main Body */}
+        <main className="p-4 sm:p-8 max-w-7xl w-full mx-auto space-y-6">
           {/* =========================================================================
-              TAB: REGISTERED STUDENTS / APPLICATIONS
+              TAB: SCHOOLS (16 Schools Dynamic Discipline Architecture)
+          ========================================================================= */}
+          {activeTab === "schools" && (
+            <div className="space-y-6">
+              {/* Top Banner & Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
+                    Total Disciplines
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                      {schools.length}
+                    </span>
+                    <span className="text-xs text-slate-500">schools registered</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Discipline architecture tracks</p>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
+                    Active Schools
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-emerald-600 tracking-tight">
+                      {schools.filter((s) => s.is_active).length}
+                    </span>
+                    <span className="text-xs text-slate-500">open for enrollment</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Available in student applications</p>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
+                    Internship Roles
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-teal-600 tracking-tight">
+                      {internships.length}
+                    </span>
+                    <span className="text-xs text-slate-500">roles across schools</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Mapped to MBT functional areas</p>
+                </div>
+              </div>
+
+              {/* Search & Actions Bar */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="relative flex-1 w-full max-w-md">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search by school code (e.g. A, B) or name..."
+                    value={schoolSearchQuery}
+                    onChange={(e) => setSchoolSearchQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white transition-all"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={fetchSchools}
+                    className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 cursor-pointer shadow-xs"
+                    title="Refresh Schools"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={openAddSchoolModal}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-600/20"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add School</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Schools Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {filteredSchools.length === 0 ? (
+                  <div className="col-span-full bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
+                    <GraduationCap className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="font-semibold text-slate-700">No schools match your search query.</p>
+                    <button
+                      onClick={() => setSchoolSearchQuery("")}
+                      className="mt-3 text-xs text-emerald-600 hover:underline font-semibold"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                ) : (
+                  filteredSchools.map((school) => {
+                    const rolesInSchool = internships.filter((i) => i.school_code === school.code);
+                    return (
+                      <div
+                        key={school.id}
+                        className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between group"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between mb-3">
+                            <span className="w-8 h-8 rounded-xl bg-slate-900 text-emerald-400 font-extrabold text-sm flex items-center justify-center shadow-xs">
+                              {school.code}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  school.is_active
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-slate-100 text-slate-500 border border-slate-200"
+                                }`}
+                              >
+                                {school.is_active ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <h3 className="font-extrabold text-slate-900 text-sm leading-snug">
+                            {school.name}
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
+                            {school.description || "Core functional discipline within MBT internship."}
+                          </p>
+
+                          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                            <span>Sort Order: #{school.sort_order}</span>
+                            <span className="font-semibold text-emerald-700">
+                              {rolesInSchool.length} active {rolesInSchool.length === 1 ? "role" : "roles"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Card Action Buttons */}
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-1">
+                          <button
+                            onClick={() => openAddInternshipModal(school.code)}
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Create Internship in this school"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Add Role</span>
+                          </button>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => openEditSchoolModal(school)}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                              title="Edit School"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedSchool(school);
+                                setIsSchoolDeleteModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Delete School"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              TAB: DURATION TRACKS (5 Duration Models Dynamic CRUD)
+          ========================================================================= */}
+          {activeTab === "tracks" && (
+            <div className="space-y-6">
+              {/* Header & Overview */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-extrabold text-slate-900">
+                    Internship Duration Models (5 Tracks)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                    Dynamic duration frameworks aligned with student academic levels, credits, and project complexity.
+                    Changes update live across all student application forms.
+                  </p>
+                </div>
+                <button
+                  onClick={openAddTrackModal}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-600/20 shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Duration Model</span>
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search model code (e.g. Model A) or title..."
+                  value={trackSearchQuery}
+                  onChange={(e) => setTrackSearchQuery(e.target.value)}
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-600 transition-all"
+                />
+              </div>
+
+              {/* Duration Models Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                {filteredTracks.length === 0 ? (
+                  <div className="col-span-full bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
+                    <Target className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="font-semibold text-slate-700">No duration models match your query.</p>
+                  </div>
+                ) : (
+                  filteredTracks.map((track) => (
+                    <div
+                      key={track.id}
+                      className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200">
+                            {track.model_code}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              track.is_active
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-slate-100 text-slate-400"
+                            }`}
+                          >
+                            {track.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="text-lg font-black text-slate-900 tracking-tight">
+                            {track.title}
+                          </h4>
+                          <div className="text-2xl font-black text-emerald-700 tracking-tight mt-0.5">
+                            {track.duration}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                              Suitable For
+                            </span>
+                            <p className="text-slate-700 text-xs mt-0.5 leading-snug">
+                              {track.suitable_for || "All interested candidates."}
+                            </p>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                              Project Focus
+                            </span>
+                            <p className="text-slate-700 text-xs mt-0.5 leading-snug">
+                              {track.focus || "Hands-on organizational contribution."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Actions */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Sort: #{track.sort_order}
+                        </span>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openEditTrackModal(track)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                            title="Edit Duration Model"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedTrack(track);
+                              setIsTrackDeleteModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="Delete Duration Model"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              TAB: STUDENT APPLICATIONS
           ========================================================================= */}
           {activeTab === "applications" && (
             <div className="space-y-6">
-              {/* Stat Cards */}
+              {/* Application Stats */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Total Applicants
                     </span>
-                    <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                      <UserCheck className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+                      <Users className="w-5 h-5" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
                     <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
                       {applications.length}
                     </span>
-                    <span className="text-xs text-slate-500">students</span>
+                    <span className="text-xs text-slate-500">registered</span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">Submitted applications</p>
+                  <p className="text-xs text-slate-400 mt-1">Across all 16 schools</p>
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Pending Reviews
+                      Pending Review
                     </span>
                     <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
                       <Clock className="w-5 h-5" />
@@ -1046,7 +1659,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                     <span className="text-3xl font-extrabold text-amber-600 tracking-tight">
                       {pendingAppsCount}
                     </span>
-                    <span className="text-xs text-slate-500">awaiting review</span>
+                    <span className="text-xs text-slate-500">awaiting</span>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">Needs admin decision</p>
                 </div>
@@ -1104,7 +1717,6 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Status Filter */}
                     <select
                       value={appStatusFilter}
                       onChange={(e) => setAppStatusFilter(e.target.value)}
@@ -1118,13 +1730,12 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                       <option value="rejected">Rejected</option>
                     </select>
 
-                    {/* School Filter */}
                     <select
                       value={appSchoolFilter}
                       onChange={(e) => setAppSchoolFilter(e.target.value)}
                       className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold cursor-pointer outline-none focus:border-emerald-600"
                     >
-                      <option value="all">All Schools (A–P)</option>
+                      <option value="all">All Schools ({schools.length})</option>
                       {schools.map((s) => (
                         <option key={s.id} value={s.code}>
                           School {s.code}: {s.name}
@@ -1376,7 +1987,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
 
                     <button
                       onClick={fetchInternships}
-                      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600"
+                      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
                     >
                       <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin text-emerald-600" : ""}`} />
                     </button>
@@ -1398,41 +2009,62 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-normal">
-                      {filteredInternships.map((item) => (
-                        <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="px-6 py-4 font-mono text-slate-400">#{item.id}</td>
-                          <td className="px-6 py-4 font-semibold text-slate-800">
-                            School {item.school_code}: {item.school_name}
-                          </td>
-                          <td className="px-6 py-4 font-bold text-slate-900">{item.title}</td>
-                          <td className="px-6 py-4 text-slate-600">{item.duration_model}</td>
-                          <td className="px-6 py-4 text-slate-600">{item.workplace_type} ({item.location})</td>
-                          <td className="px-6 py-4 font-semibold text-slate-800">{item.openings}</td>
-                          <td className="px-6 py-4 capitalize font-semibold text-emerald-700">{item.status}</td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                onClick={() => {
-                                  setSelectedInternship(item);
-                                  setIsViewModalOpen(true);
-                                }}
-                                className="p-1 text-slate-500 hover:text-emerald-700"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedInternship(item);
-                                  setIsDeleteModalOpen(true);
-                                }}
-                                className="p-1 text-slate-500 hover:text-rose-700"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                      {filteredInternships.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
+                            No internship postings found. Click &quot;New Internship&quot; to add one!
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        filteredInternships.map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="px-6 py-4 font-mono text-slate-400">#{item.id}</td>
+                            <td className="px-6 py-4 font-semibold text-slate-800">
+                              School {item.school_code}: {item.school_name}
+                            </td>
+                            <td className="px-6 py-4 font-bold text-slate-900">{item.title}</td>
+                            <td className="px-6 py-4 text-slate-600">{item.duration_model}</td>
+                            <td className="px-6 py-4 text-slate-600">
+                              {item.workplace_type} ({item.location})
+                            </td>
+                            <td className="px-6 py-4 font-semibold text-slate-800">{item.openings}</td>
+                            <td className="px-6 py-4 capitalize font-semibold text-emerald-700">
+                              {item.status}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setSelectedInternship(item);
+                                    setIsViewModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                                  title="View Details"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => openEditInternshipModal(item)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                                  title="Edit Internship"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedInternship(item);
+                                    setIsDeleteModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Delete Internship"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1441,94 +2073,40 @@ create policy "Allow all operations for duration_models" on public.duration_mode
           )}
 
           {/* =========================================================================
-              TAB: SCHOOLS
-          ========================================================================= */}
-          {activeTab === "schools" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">16 Schools (Discipline Architecture)</h2>
-                  <p className="text-xs text-slate-500">Manage all functional departments in the MBT programme</p>
-                </div>
-                <button
-                  onClick={() => setIsSchoolAddModalOpen(true)}
-                  className="bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add School</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {schools.map((school) => (
-                  <div key={school.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-                    <span className="w-7 h-7 rounded-xl bg-slate-900 text-emerald-400 font-extrabold text-xs flex items-center justify-center mb-2">
-                      {school.code}
-                    </span>
-                    <h3 className="font-bold text-slate-900 text-sm">{school.name}</h3>
-                    <p className="text-xs text-slate-500 mt-1">{school.description || "Active discipline track."}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* =========================================================================
-              TAB: DURATION TRACKS
-          ========================================================================= */}
-          {activeTab === "tracks" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">5 Duration Models</h2>
-                  <p className="text-xs text-slate-500">Tracks matched to student stage and commitment</p>
-                </div>
-                <button
-                  onClick={() => setIsTrackAddModalOpen(true)}
-                  className="bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Track</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {tracks.map((track) => (
-                  <div key={track.id} className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3">
-                    <span className="text-[10px] font-bold text-teal-700 uppercase">{track.model_code}</span>
-                    <h4 className="text-base font-extrabold text-slate-900">{track.title}</h4>
-                    <div className="text-xl font-black text-slate-900">{track.duration}</div>
-                    <div className="text-xs text-slate-600"><strong>Suitable:</strong> {track.suitable_for}</div>
-                    <div className="text-xs text-slate-600"><strong>Focus:</strong> {track.focus}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* =========================================================================
               TAB: ADMINS
           ========================================================================= */}
           {activeTab === "admins" && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs max-w-3xl">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-900">System Administrators</h3>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">System Administrators</h3>
+                  <p className="text-xs text-slate-500">Authorized personnel who can manage the portal</p>
+                </div>
                 <Link
                   href="/admin/register"
-                  className="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-600/20"
                 >
                   Register Admin
                 </Link>
               </div>
-              <div className="space-y-3">
+
+              <div className="space-y-3 mt-4">
                 {admins.map((admin) => (
-                  <div key={admin.id} className="p-3 bg-slate-50 rounded-xl flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-bold text-slate-900">{admin.name}</div>
-                      <div className="text-slate-500 font-mono">{admin.email}</div>
+                  <div
+                    key={admin.id}
+                    className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center">
+                        {admin.name?.[0]?.toUpperCase() || "A"}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm">{admin.name}</div>
+                        <div className="text-slate-500 font-mono mt-0.5">{admin.email}</div>
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-semibold text-[10px]">
-                      Admin #{admin.id}
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200">
+                      Active Admin #{admin.id}
                     </span>
                   </div>
                 ))}
@@ -1541,18 +2119,80 @@ create policy "Allow all operations for duration_models" on public.duration_mode
           ========================================================================= */}
           {activeTab === "schema" && (
             <div className="space-y-6">
+              {/* Schools Table SQL */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      16 Schools (Discipline Architecture) Schema
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Table <code className="font-mono text-slate-700 font-semibold">public.programme_schools</code>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => copyText(schoolsTableSql, setCopiedSchoolSql)}
+                    className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 font-semibold cursor-pointer"
+                  >
+                    {copiedSchoolSql ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                    <span>{copiedSchoolSql ? "Copied" : "Copy SQL"}</span>
+                  </button>
+                </div>
+                <pre className="bg-slate-900 p-5 rounded-2xl text-xs font-mono text-emerald-400 overflow-x-auto leading-relaxed border border-slate-800">
+                  {schoolsTableSql}
+                </pre>
+              </div>
+
+              {/* Duration Models SQL */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      5 Duration Models (Tracks) Schema
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Table <code className="font-mono text-slate-700 font-semibold">public.duration_models</code>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => copyText(durationModelsSql, setCopiedTrackSql)}
+                    className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 font-semibold cursor-pointer"
+                  >
+                    {copiedTrackSql ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                    <span>{copiedTrackSql ? "Copied" : "Copy SQL"}</span>
+                  </button>
+                </div>
+                <pre className="bg-slate-900 p-5 rounded-2xl text-xs font-mono text-emerald-400 overflow-x-auto leading-relaxed border border-slate-800">
+                  {durationModelsSql}
+                </pre>
+              </div>
+
               {/* Applications SQL */}
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Student Applications Schema</h3>
-                    <p className="text-xs text-slate-500">Schema for <code className="font-mono text-slate-700">public.internship_applications</code></p>
+                    <p className="text-xs text-slate-500">
+                      Table <code className="font-mono text-slate-700 font-semibold">public.internship_applications</code>
+                    </p>
                   </div>
                   <button
                     onClick={() => copyText(applicationsTableSql, setCopiedAppSql)}
-                    className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 font-semibold"
+                    className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 font-semibold cursor-pointer"
                   >
-                    {copiedAppSql ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedAppSql ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
                     <span>{copiedAppSql ? "Copied" : "Copy SQL"}</span>
                   </button>
                 </div>
@@ -1564,17 +2204,52 @@ create policy "Allow all operations for duration_models" on public.duration_mode
               {/* Internships SQL */}
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-slate-900">Internships Table Schema</h3>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Internships Table Schema</h3>
+                    <p className="text-xs text-slate-500">
+                      Table <code className="font-mono text-slate-700 font-semibold">public.internships</code>
+                    </p>
+                  </div>
                   <button
                     onClick={() => copyText(internshipTableSql, setCopiedInternshipSql)}
-                    className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 font-semibold"
+                    className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 font-semibold cursor-pointer"
                   >
-                    {copiedInternshipSql ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedInternshipSql ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
                     <span>{copiedInternshipSql ? "Copied" : "Copy SQL"}</span>
                   </button>
                 </div>
-                <pre className="bg-slate-900 p-5 rounded-2xl text-xs font-mono text-emerald-400 overflow-x-auto leading-relaxed">
+                <pre className="bg-slate-900 p-5 rounded-2xl text-xs font-mono text-emerald-400 overflow-x-auto leading-relaxed border border-slate-800">
                   {internshipTableSql}
+                </pre>
+              </div>
+
+              {/* Admins SQL */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Admins Schema</h3>
+                    <p className="text-xs text-slate-500">
+                      Table <code className="font-mono text-slate-700 font-semibold">public.admins</code>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => copyText(adminsTableSql, setCopiedAdminSql)}
+                    className="flex items-center gap-1.5 text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 font-semibold cursor-pointer"
+                  >
+                    {copiedAdminSql ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                    <span>{copiedAdminSql ? "Copied" : "Copy SQL"}</span>
+                  </button>
+                </div>
+                <pre className="bg-slate-900 p-5 rounded-2xl text-xs font-mono text-emerald-400 overflow-x-auto leading-relaxed border border-slate-800">
+                  {adminsTableSql}
                 </pre>
               </div>
             </div>
@@ -1583,8 +2258,973 @@ create policy "Allow all operations for duration_models" on public.duration_mode
       </div>
 
       {/* =========================================================================
-          VIEW STUDENT APPLICATION MODAL
+          MODALS: SCHOOLS (ADD, EDIT, DELETE)
       ========================================================================= */}
+      {/* 1. Add School Modal */}
+      {isSchoolAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Add New School / Discipline</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Define a functional department in the programme architecture</p>
+              </div>
+              <button
+                onClick={() => setIsSchoolAddModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-800 text-xs font-medium border border-rose-200">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleSchoolCreateSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Code (e.g. A, B)</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={4}
+                    value={schoolForm.code}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, code: e.target.value.toUpperCase() })}
+                    placeholder="Q"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold uppercase outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">School Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={schoolForm.name}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, name: e.target.value })}
+                    placeholder="e.g. Clean Energy & Sustainability"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Description / Focus Areas</label>
+                <textarea
+                  rows={3}
+                  value={schoolForm.description}
+                  onChange={(e) => setSchoolForm({ ...schoolForm, description: e.target.value })}
+                  placeholder="Summary of domain scope, projects, and activities in this school..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Sort Order</label>
+                  <input
+                    type="number"
+                    value={schoolForm.sort_order}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, sort_order: Number(e.target.value) })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+
+                <div className="pt-5 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="add_school_active"
+                    checked={schoolForm.is_active}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, is_active: e.target.checked })}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  />
+                  <label htmlFor="add_school_active" className="font-semibold text-slate-700 cursor-pointer">
+                    Active for applications
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsSchoolAddModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-sm shadow-emerald-600/20"
+                >
+                  {actionLoading ? "Saving..." : "Create School"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Edit School Modal */}
+      {isSchoolEditModalOpen && selectedSchool && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Edit School {selectedSchool.code}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Modify school title, discipline description, or ordering</p>
+              </div>
+              <button
+                onClick={() => setIsSchoolEditModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-800 text-xs font-medium border border-rose-200">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleSchoolEditSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Code</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={4}
+                    value={schoolForm.code}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, code: e.target.value.toUpperCase() })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold uppercase outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">School Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={schoolForm.name}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, name: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Description / Focus Areas</label>
+                <textarea
+                  rows={3}
+                  value={schoolForm.description}
+                  onChange={(e) => setSchoolForm({ ...schoolForm, description: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Sort Order</label>
+                  <input
+                    type="number"
+                    value={schoolForm.sort_order}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, sort_order: Number(e.target.value) })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+
+                <div className="pt-5 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit_school_active"
+                    checked={schoolForm.is_active}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, is_active: e.target.checked })}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  />
+                  <label htmlFor="edit_school_active" className="font-semibold text-slate-700 cursor-pointer">
+                    Active for applications
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsSchoolEditModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-sm shadow-emerald-600/20"
+                >
+                  {actionLoading ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Delete School Modal */}
+      {isSchoolDeleteModalOpen && selectedSchool && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Delete School {selectedSchool.code}?</h3>
+            <p className="text-xs text-slate-500 mt-1 mb-4">
+              Are you sure you want to remove <strong>{selectedSchool.name}</strong> from the programme architecture?
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setIsSchoolDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSchoolDelete}
+                disabled={actionLoading}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
+              >
+                {actionLoading ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODALS: DURATION TRACKS (ADD, EDIT, DELETE)
+      ========================================================================= */}
+      {/* 1. Add Track Modal */}
+      {isTrackAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Add Duration Model Track</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Define student internship timeline, duration, and target scope</p>
+              </div>
+              <button
+                onClick={() => setIsTrackAddModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-800 text-xs font-medium border border-rose-200">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleTrackCreateSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Model Code (e.g. Model F)</label>
+                  <input
+                    type="text"
+                    required
+                    value={trackForm.model_code}
+                    onChange={(e) => setTrackForm({ ...trackForm, model_code: e.target.value })}
+                    placeholder="Model F"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Track Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={trackForm.title}
+                    onChange={(e) => setTrackForm({ ...trackForm, title: e.target.value })}
+                    placeholder="e.g. Advanced Fellowship"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Duration (Hours / Months)</label>
+                <input
+                  type="text"
+                  required
+                  value={trackForm.duration}
+                  onChange={(e) => setTrackForm({ ...trackForm, duration: e.target.value })}
+                  placeholder="e.g. 180 hrs or 4 months"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Suitable For (Target Audience)</label>
+                <input
+                  type="text"
+                  value={trackForm.suitable_for}
+                  onChange={(e) => setTrackForm({ ...trackForm, suitable_for: e.target.value })}
+                  placeholder="e.g. Final year UG / Postgraduates"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Focus / Key Deliverables</label>
+                <textarea
+                  rows={2}
+                  value={trackForm.focus}
+                  onChange={(e) => setTrackForm({ ...trackForm, focus: e.target.value })}
+                  placeholder="e.g. In-depth research, full product sprint, deployment"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Sort Order</label>
+                  <input
+                    type="number"
+                    value={trackForm.sort_order}
+                    onChange={(e) => setTrackForm({ ...trackForm, sort_order: Number(e.target.value) })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+
+                <div className="pt-5 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="add_track_active"
+                    checked={trackForm.is_active}
+                    onChange={(e) => setTrackForm({ ...trackForm, is_active: e.target.checked })}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  />
+                  <label htmlFor="add_track_active" className="font-semibold text-slate-700 cursor-pointer">
+                    Active for applications
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsTrackAddModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-sm shadow-emerald-600/20"
+                >
+                  {actionLoading ? "Saving..." : "Create Model"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Edit Track Modal */}
+      {isTrackEditModalOpen && selectedTrack && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Edit {selectedTrack.model_code}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Modify duration, audience, or deliverables</p>
+              </div>
+              <button
+                onClick={() => setIsTrackEditModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 cursor-pointer p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-800 text-xs font-medium border border-rose-200">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleTrackEditSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Model Code</label>
+                  <input
+                    type="text"
+                    required
+                    value={trackForm.model_code}
+                    onChange={(e) => setTrackForm({ ...trackForm, model_code: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Track Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={trackForm.title}
+                    onChange={(e) => setTrackForm({ ...trackForm, title: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Duration (Hours / Months)</label>
+                <input
+                  type="text"
+                  required
+                  value={trackForm.duration}
+                  onChange={(e) => setTrackForm({ ...trackForm, duration: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Suitable For (Target Audience)</label>
+                <input
+                  type="text"
+                  value={trackForm.suitable_for}
+                  onChange={(e) => setTrackForm({ ...trackForm, suitable_for: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Focus / Key Deliverables</label>
+                <textarea
+                  rows={2}
+                  value={trackForm.focus}
+                  onChange={(e) => setTrackForm({ ...trackForm, focus: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Sort Order</label>
+                  <input
+                    type="number"
+                    value={trackForm.sort_order}
+                    onChange={(e) => setTrackForm({ ...trackForm, sort_order: Number(e.target.value) })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                  />
+                </div>
+
+                <div className="pt-5 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit_track_active"
+                    checked={trackForm.is_active}
+                    onChange={(e) => setTrackForm({ ...trackForm, is_active: e.target.checked })}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  />
+                  <label htmlFor="edit_track_active" className="font-semibold text-slate-700 cursor-pointer">
+                    Active for applications
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsTrackEditModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-sm shadow-emerald-600/20"
+                >
+                  {actionLoading ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Delete Track Modal */}
+      {isTrackDeleteModalOpen && selectedTrack && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Delete {selectedTrack.model_code}?</h3>
+            <p className="text-xs text-slate-500 mt-1 mb-4">
+              Are you sure you want to remove <strong>{selectedTrack.title} ({selectedTrack.duration})</strong>?
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setIsTrackDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTrackDelete}
+                disabled={actionLoading}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
+              >
+                {actionLoading ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODALS: INTERNSHIPS (CREATE, EDIT, VIEW, DELETE)
+      ========================================================================= */}
+      {/* 1. Add Internship Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Create Internship Opening</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Add an internship under one of the 16 schools & 5 duration tracks</p>
+              </div>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-800 text-xs font-medium border border-rose-200">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleInternshipCreateSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Discipline / School</label>
+                  <select
+                    value={internshipForm.school_code}
+                    onChange={(e) => handleSchoolChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-semibold outline-none focus:border-emerald-600 focus:bg-white"
+                  >
+                    {schools.map((s) => (
+                      <option key={s.id} value={s.code}>
+                        School {s.code}: {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Duration Model Track</label>
+                  <select
+                    value={internshipForm.duration_model}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-semibold outline-none focus:border-emerald-600 focus:bg-white"
+                  >
+                    {tracks.map((t) => (
+                      <option key={t.id} value={`${t.model_code} - ${t.title}`}>
+                        {t.model_code} - {t.title} ({t.duration})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Internship Role Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. AI Research Intern / Product Design Fellow"
+                  value={internshipForm.title}
+                  onChange={(e) => setInternshipForm({ ...internshipForm, title: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Workplace</label>
+                  <select
+                    value={internshipForm.workplace_type}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, workplace_type: e.target.value as any })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  >
+                    <option value="Remote">Remote</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="Onsite">Onsite</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={internshipForm.location}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, location: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Open Seats</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={internshipForm.openings}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, openings: Number(e.target.value) })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Role Description</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Overview of the role and projects..."
+                  value={internshipForm.description}
+                  onChange={(e) => setInternshipForm({ ...internshipForm, description: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Skills (Comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="Python, React, Design"
+                    value={internshipForm.skills}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, skills: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Stipend / Support</label>
+                  <input
+                    type="text"
+                    placeholder="Performance-based / Certificate"
+                    value={internshipForm.stipend}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, stipend: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-sm shadow-emerald-600/20"
+                >
+                  {actionLoading ? "Publishing..." : "Publish Internship"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Edit Internship Modal */}
+      {isEditModalOpen && selectedInternship && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Edit Internship #{selectedInternship.id}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{selectedInternship.title}</p>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-800 text-xs font-medium border border-rose-200">
+                {formError}
+              </div>
+            )}
+
+            <form onSubmit={handleInternshipEditSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Discipline / School</label>
+                  <select
+                    value={internshipForm.school_code}
+                    onChange={(e) => handleSchoolChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-semibold outline-none focus:border-emerald-600 focus:bg-white"
+                  >
+                    {schools.map((s) => (
+                      <option key={s.id} value={s.code}>
+                        School {s.code}: {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Duration Model Track</label>
+                  <select
+                    value={internshipForm.duration_model}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-semibold outline-none focus:border-emerald-600 focus:bg-white"
+                  >
+                    {tracks.map((t) => (
+                      <option key={t.id} value={`${t.model_code} - ${t.title}`}>
+                        {t.model_code} - {t.title} ({t.duration})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Internship Role Title</label>
+                <input
+                  type="text"
+                  required
+                  value={internshipForm.title}
+                  onChange={(e) => setInternshipForm({ ...internshipForm, title: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Workplace</label>
+                  <select
+                    value={internshipForm.workplace_type}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, workplace_type: e.target.value as any })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  >
+                    <option value="Remote">Remote</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="Onsite">Onsite</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={internshipForm.location}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, location: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Open Seats</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={internshipForm.openings}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, openings: Number(e.target.value) })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Status</label>
+                  <select
+                    value={internshipForm.status}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, status: e.target.value as any })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold outline-none capitalize"
+                  >
+                    <option value="active">Active</option>
+                    <option value="draft">Draft</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Role Description</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={internshipForm.description}
+                  onChange={(e) => setInternshipForm({ ...internshipForm, description: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Skills (Comma-separated)</label>
+                  <input
+                    type="text"
+                    value={internshipForm.skills}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, skills: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Stipend / Support</label>
+                  <input
+                    type="text"
+                    value={internshipForm.stipend}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, stipend: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-sm shadow-emerald-600/20"
+                >
+                  {actionLoading ? "Updating..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. View Internship Modal */}
+      {isViewModalOpen && selectedInternship && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 sm:p-8">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100 mb-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 px-2 py-0.5 rounded">
+                  School {selectedInternship.school_code}: {selectedInternship.school_name}
+                </span>
+                <h3 className="font-extrabold text-slate-900 text-lg mt-1">{selectedInternship.title}</h3>
+                <p className="text-xs text-slate-500">{selectedInternship.duration_model} &bull; {selectedInternship.workplace_type} ({selectedInternship.location})</p>
+              </div>
+              <button onClick={() => setIsViewModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Openings</span>
+                  <span className="font-semibold text-slate-900">{selectedInternship.openings} seats</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Duration</span>
+                  <span className="font-semibold text-slate-900">{selectedInternship.duration_hours_months}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Status</span>
+                  <span className="font-bold text-emerald-700 capitalize">{selectedInternship.status}</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-900 text-xs mb-1">Description</h4>
+                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedInternship.description}</p>
+              </div>
+
+              {selectedInternship.skills && selectedInternship.skills.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs mb-1">Skills</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(Array.isArray(selectedInternship.skills)
+                      ? selectedInternship.skills
+                      : String(selectedInternship.skills).split(",")
+                    ).map((skill, idx) => (
+                      <span key={idx} className="bg-slate-100 text-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded-lg">
+                        {String(skill).trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-6">
+              <button
+                onClick={() => setIsViewModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setIsViewModalOpen(false);
+                  openEditInternshipModal(selectedInternship);
+                }}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold cursor-pointer"
+              >
+                Edit Role
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Delete Internship Modal */}
+      {isDeleteModalOpen && selectedInternship && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">Delete Internship Opening?</h3>
+            <p className="text-xs text-slate-500 mt-1 mb-4">
+              Delete <strong>{selectedInternship.title}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleInternshipDelete}
+                disabled={actionLoading}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
+              >
+                {actionLoading ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODALS: STUDENT APPLICATIONS (VIEW & DELETE)
+      ========================================================================= */}
+      {/* 1. View Student Application Modal */}
       {isAppViewModalOpen && selectedApplication && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
@@ -1603,7 +3243,10 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                 </p>
               </div>
 
-              <button onClick={() => setIsAppViewModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700">
+              <button
+                onClick={() => setIsAppViewModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1616,11 +3259,15 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Degree & Stage</span>
-                  <span className="font-semibold text-slate-800">{selectedApplication.degree} ({selectedApplication.year_of_study})</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedApplication.degree} ({selectedApplication.year_of_study})
+                  </span>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Preferred Discipline</span>
-                  <span className="font-bold text-teal-800">School {selectedApplication.school_code}: {selectedApplication.school_name}</span>
+                  <span className="font-bold text-teal-800">
+                    School {selectedApplication.school_code}: {selectedApplication.school_name}
+                  </span>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">Duration Track</span>
@@ -1630,7 +3277,9 @@ create policy "Allow all operations for duration_models" on public.duration_mode
 
               {selectedApplication.statement_of_purpose && (
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Statement of Purpose</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                    Statement of Purpose
+                  </span>
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-slate-700 leading-relaxed whitespace-pre-wrap">
                     {selectedApplication.statement_of_purpose}
                   </div>
@@ -1665,11 +3314,13 @@ create policy "Allow all operations for duration_models" on public.duration_mode
               {/* Status & Review Notes */}
               <div className="pt-4 border-t border-slate-100 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Decision Status</span>
+                  <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                    Decision Status
+                  </span>
                   <select
                     value={selectedApplication.status}
                     onChange={(e) => handleUpdateAppStatus(selectedApplication.id, e.target.value, appNotes)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 font-bold text-xs"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 font-bold text-xs bg-slate-50 cursor-pointer outline-none focus:border-emerald-600"
                   >
                     <option value="pending">Pending</option>
                     <option value="under_review">Under Review</option>
@@ -1680,13 +3331,15 @@ create policy "Allow all operations for duration_models" on public.duration_mode
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Internal Admin Notes</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                    Internal Admin Notes
+                  </span>
                   <textarea
                     rows={2}
-                    placeholder="Add notes about candidate interview, mentor assignment..."
+                    placeholder="Add interview notes, mentor assignment..."
                     value={appNotes}
                     onChange={(e) => setAppNotes(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 outline-none focus:bg-white focus:border-emerald-600"
                   />
                   <button
                     onClick={() => handleUpdateAppStatus(selectedApplication.id, selectedApplication.status, appNotes)}
@@ -1710,7 +3363,7 @@ create policy "Allow all operations for duration_models" on public.duration_mode
         </div>
       )}
 
-      {/* DELETE APPLICATION CONFIRMATION */}
+      {/* 2. Delete Student Application Modal */}
       {isAppDeleteModalOpen && selectedApplication && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-center">
@@ -1722,67 +3375,20 @@ create policy "Allow all operations for duration_models" on public.duration_mode
               Delete candidate record for <strong>{selectedApplication.full_name}</strong>?
             </p>
             <div className="flex items-center justify-center gap-2">
-              <button onClick={() => setIsAppDeleteModalOpen(false)} className="px-4 py-2 rounded-xl border text-xs">
+              <button
+                onClick={() => setIsAppDeleteModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
                 Cancel
               </button>
-              <button onClick={handleAppDelete} className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-semibold">
-                Delete
+              <button
+                onClick={handleAppDelete}
+                disabled={actionLoading}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
+              >
+                {actionLoading ? "Deleting..." : "Confirm Delete"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Internship Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <h3 className="font-bold text-slate-900 text-base">Create Internship Opening</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleInternshipCreateSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold mb-1">School</label>
-                <select
-                  value={internshipForm.school_code}
-                  onChange={(e) => handleSchoolChange(e.target.value)}
-                  className="w-full border rounded-xl p-2"
-                >
-                  {schools.map((s) => (
-                    <option key={s.id} value={s.code}>School {s.code}: {s.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block font-semibold mb-1">Title</label>
-                <input
-                  type="text"
-                  required
-                  value={internshipForm.title}
-                  onChange={(e) => setInternshipForm({ ...internshipForm, title: e.target.value })}
-                  className="w-full border rounded-xl p-2"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold mb-1">Description</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={internshipForm.description}
-                  onChange={(e) => setInternshipForm({ ...internshipForm, description: e.target.value })}
-                  className="w-full border rounded-xl p-2"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 border rounded-xl">Cancel</button>
-                <button type="submit" disabled={actionLoading} className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold">
-                  {actionLoading ? "Saving..." : "Create"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
