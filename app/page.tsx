@@ -148,7 +148,7 @@ export default function HomePage() {
             </div>
             <div>
               <span className="font-bold text-slate-900 tracking-tight text-base sm:text-lg block leading-none">
-                MBT Internship
+                MBT Internship Portal
               </span>
               <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block mt-1">
                 Mission Better Tomorrow
@@ -163,10 +163,10 @@ export default function HomePage() {
               Browse Openings ({internships.length})
             </a>
             <a href="#schools" className="hover:text-emerald-700 transition-colors">
-              16 Schools
+              Domains
             </a>
             <a href="#tracks" className="hover:text-emerald-700 transition-colors">
-              5 Duration Tracks
+              Internship Duration
             </a>
           </nav>
 
@@ -496,13 +496,13 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="text-center max-w-3xl mx-auto space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-              Discipline Architecture
+              Domains & Discipline Architecture
             </span>
             <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-              16 Specialized Programme Schools
+              16 Specialized Domains (Schools Architecture)
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Every intern at MBT is mapped to one of 16 structured functional departments with designated mentors, live project briefs, and performance milestones. Click any school below to view openings in that discipline.
+              Every intern at MBT is mapped to one of 16 structured domain schools with designated mentors, live project briefs, and performance milestones. Click any domain below to view openings in that discipline.
             </p>
           </div>
 
@@ -549,7 +549,7 @@ export default function HomePage() {
             Commitment Frameworks
           </span>
           <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-            5 Internship Duration Models
+            Internship Duration (5 Tracks Models)
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
             From short curriculum internships to intensive 1-year innovation fellowships, students can choose the model fitting their university credits and career trajectory.

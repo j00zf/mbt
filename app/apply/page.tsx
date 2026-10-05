@@ -13,8 +13,15 @@ import {
   Sparkles,
   ExternalLink,
   ChevronLeft,
+  Briefcase,
+  Lock,
+  Building,
+  Check,
+  Info,
+  Mail,
 } from "lucide-react";
 import {
+  type Internship,
   type ProgrammeSchool,
   type DurationModel,
   DEFAULT_MBT_SCHOOLS,
@@ -22,8 +29,10 @@ import {
 } from "@/lib/supabase";
 
 export default function StudentApplyPage() {
+  const [openPositions, setOpenPositions] = useState<Internship[]>([]);
   const [schools, setSchools] = useState<ProgrammeSchool[]>([]);
   const [tracks, setTracks] = useState<DurationModel[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
   // Form states
   const [fullName, setFullName] = useState("");
@@ -42,66 +51,114 @@ export default function StudentApplyPage() {
   const [error, setError] = useState<string | null>(null);
   const [submittedAppId, setSubmittedAppId] = useState<number | null>(null);
 
-  const [targetInternshipId, setTargetInternshipId] = useState<number | null>(null);
+  // Opening-specific locking
+  const [selectedInternshipId, setSelectedInternshipId] = useState<number | null>(null);
   const [targetRoleTitle, setTargetRoleTitle] = useState<string | null>(null);
+  const [isLockedFromOrigin, setIsLockedFromOrigin] = useState(false);
 
-  // Read URL query params on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const schoolParam = params.get("school");
-      const trackParam = params.get("track");
-      const roleParam = params.get("role");
-      const idParam = params.get("internshipId");
-      if (schoolParam) setSelectedSchoolCode(schoolParam.toUpperCase());
-      if (trackParam) setSelectedDurationModel(trackParam);
-      if (idParam) setTargetInternshipId(Number(idParam));
-      if (roleParam) setTargetRoleTitle(roleParam);
-    }
-  }, []);
-
-  // Load active schools and tracks
+  // Load data & handle initial query params
   useEffect(() => {
     async function loadData() {
       try {
-        const [schoolsRes, tracksRes] = await Promise.all([
+        const [internshipsRes, schoolsRes, tracksRes] = await Promise.all([
+          fetch("/api/internships"),
           fetch("/api/admin/schools"),
           fetch("/api/admin/tracks"),
         ]);
 
-        if (schoolsRes.ok) {
-          const sData = await schoolsRes.json();
-          setSchools(sData.schools || []);
-        } else {
-          setSchools(
-            DEFAULT_MBT_SCHOOLS.map((s, idx) => ({ ...s, id: idx + 1, created_at: "" }))
+        let loadedPositions: Internship[] = [];
+        if (internshipsRes.ok) {
+          const iData = await internshipsRes.json();
+          // Show only open / active positions
+          loadedPositions = (iData.internships || []).filter(
+            (i: Internship) => !i.status || i.status === "active"
           );
+          setOpenPositions(loadedPositions);
         }
 
+        let loadedSchools = DEFAULT_MBT_SCHOOLS.map((s, idx) => ({ ...s, id: idx + 1, created_at: "" }));
+        if (schoolsRes.ok) {
+          const sData = await schoolsRes.json();
+          if (sData.schools && sData.schools.length > 0) {
+            loadedSchools = sData.schools;
+          }
+        }
+        setSchools(loadedSchools);
+
+        let loadedTracks = DEFAULT_DURATION_MODELS.map((m, idx) => ({ ...m, id: idx + 1, created_at: "" }));
         if (tracksRes.ok) {
           const tData = await tracksRes.json();
-          setTracks(tData.tracks || []);
-        } else {
-          setTracks(
-            DEFAULT_DURATION_MODELS.map((m, idx) => ({ ...m, id: idx + 1, created_at: "" }))
-          );
+          if (tData.tracks && tData.tracks.length > 0) {
+            loadedTracks = tData.tracks;
+          }
+        }
+        setTracks(loadedTracks);
+
+        // Check URL Query Parameters
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const idParam = params.get("internshipId");
+          const roleParam = params.get("role");
+          const schoolParam = params.get("school");
+          const trackParam = params.get("track");
+
+          if (idParam) {
+            const idNum = Number(idParam);
+            setSelectedInternshipId(idNum);
+            setIsLockedFromOrigin(true);
+
+            const matched = loadedPositions.find((p) => p.id === idNum);
+            if (matched) {
+              setTargetRoleTitle(matched.title);
+              setSelectedSchoolCode(matched.school_code);
+              setSelectedDurationModel(matched.duration_model);
+            } else {
+              if (roleParam) setTargetRoleTitle(roleParam);
+              if (schoolParam) setSelectedSchoolCode(schoolParam.toUpperCase());
+              if (trackParam) setSelectedDurationModel(trackParam);
+            }
+          } else if (loadedPositions.length > 0) {
+            // User opened /apply directly: default to the first open position so Domain and Duration are auto-populated
+            const firstPos = loadedPositions[0];
+            setSelectedInternshipId(firstPos.id);
+            setTargetRoleTitle(firstPos.title);
+            setSelectedSchoolCode(firstPos.school_code);
+            setSelectedDurationModel(firstPos.duration_model);
+          }
         }
       } catch (err) {
-        setSchools(
-          DEFAULT_MBT_SCHOOLS.map((s, idx) => ({ ...s, id: idx + 1, created_at: "" }))
-        );
-        setTracks(
-          DEFAULT_DURATION_MODELS.map((m, idx) => ({ ...m, id: idx + 1, created_at: "" }))
-        );
+        console.error("Error loading apply page data:", err);
+      } finally {
+        setLoadingData(false);
       }
     }
 
     loadData();
   }, []);
 
-  const selectedSchool = schools.find((s) => s.code === selectedSchoolCode) || schools[0];
+  // When user selects a different open position from dropdown
+  const handlePositionChange = (posId: number) => {
+    setSelectedInternshipId(posId);
+    const chosen = openPositions.find((p) => p.id === posId);
+    if (chosen) {
+      setTargetRoleTitle(chosen.title);
+      setSelectedSchoolCode(chosen.school_code);
+      setSelectedDurationModel(chosen.duration_model);
+    }
+  };
+
+  const selectedSchool =
+    schools.find((s) => s.code === selectedSchoolCode) ||
+    schools.find((s) => s.code === "A") ||
+    schools[0];
+
   const selectedTrack =
-    tracks.find((m) => `${m.model_code} - ${m.title}` === selectedDurationModel) || tracks[1];
+    tracks.find(
+      (m) =>
+        `${m.model_code} - ${m.title}` === selectedDurationModel ||
+        selectedDurationModel.startsWith(m.model_code) ||
+        selectedDurationModel.includes(m.title)
+    ) || tracks[1] || tracks[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,20 +169,26 @@ export default function StudentApplyPage() {
       return;
     }
 
+    if (openPositions.length > 0 && !selectedInternshipId) {
+      setError("Please select an open internship position to proceed.");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/applications/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          internship_id: targetInternshipId,
+          internship_id: selectedInternshipId,
+          role_title: targetRoleTitle,
           full_name: fullName,
           email,
           phone,
           college,
           degree,
           year_of_study: yearOfStudy,
-          school_code: selectedSchool?.code || "A",
+          school_code: selectedSchool?.code || selectedSchoolCode || "A",
           school_name: selectedSchool?.name || "General",
           duration_model: selectedDurationModel,
           resume_url: resumeUrl,
@@ -159,11 +222,11 @@ export default function StudentApplyPage() {
               </div>
             </div>
             <div>
-              <span className="font-bold text-slate-900 tracking-tight text-sm">
-                MBT Internship Programme
+              <span className="font-bold text-slate-900 tracking-tight text-sm block leading-none">
+                MBT Internship Portal
               </span>
-              <span className="hidden sm:inline-block ml-2 px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-                Student Portal
+              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block mt-1">
+                Mission Better Tomorrow
               </span>
             </div>
           </Link>
@@ -213,19 +276,36 @@ export default function StudentApplyPage() {
                 <span className="text-slate-500 font-semibold uppercase text-[10px]">Reference Number</span>
                 <span className="font-mono font-bold text-slate-900 text-sm">#MBT-APP-{submittedAppId}</span>
               </div>
+              {targetRoleTitle && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Applied Role:</span>
+                  <span className="font-bold text-slate-900">{targetRoleTitle}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Selected School:</span>
+                <span className="text-slate-500">Assigned Domain:</span>
                 <span className="font-semibold text-slate-800">
-                  School {selectedSchool?.code}: {selectedSchool?.name}
+                  Domain {selectedSchool?.code}: {selectedSchool?.name}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Duration Track:</span>
+                <span className="text-slate-500">Internship Duration:</span>
                 <span className="font-semibold text-slate-800">{selectedDurationModel}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Applicant Email:</span>
                 <span className="font-mono text-slate-700">{email}</span>
+              </div>
+            </div>
+
+            {/* Email Notification Alert Box */}
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs mb-6 text-left flex items-start gap-3 shadow-2xs">
+              <Mail className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-slate-900">Confirmation Email Dispatched</p>
+                <p className="text-emerald-800 text-[11px] mt-0.5 leading-relaxed">
+                  We have sent an automated acknowledgment to <strong>{email}</strong> confirming receipt of your application. Our domain coordinators and mentors will review your credentials and reach out with updates.
+                </p>
               </div>
             </div>
 
@@ -267,7 +347,7 @@ export default function StudentApplyPage() {
                 Apply for MBT Internship
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Join our 16 specialized Schools across digital, research, leadership, and community development. Select your preferred discipline and duration track below.
+                Join Mission Better Tomorrow (MBT). Choose from our open positions across 16 specialized Domains. Each role has a designated Domain and fixed Duration framework.
               </p>
             </div>
 
@@ -281,27 +361,42 @@ export default function StudentApplyPage() {
               </div>
             )}
 
-            {targetRoleTitle && (
-              <div className="max-w-2xl mx-auto p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                    🎯
+            {/* Arrived from Specific Opening: Prominent Locked Banner */}
+            {isLockedFromOrigin && targetRoleTitle && (
+              <div className="max-w-3xl mx-auto p-4 sm:p-5 rounded-3xl bg-emerald-50/80 border border-emerald-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Briefcase className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">Target Internship Selected</span>
-                    <span className="font-bold text-slate-900 text-sm">{targetRoleTitle}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                        Selected Role
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                        <Lock className="w-3 h-3 text-emerald-700" />
+                        Domain & Duration Locked
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-slate-900 text-sm sm:text-base mt-1">
+                      {targetRoleTitle}
+                    </h3>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Domain: <strong>{selectedSchool?.name || selectedSchoolCode}</strong> &bull; Duration:{" "}
+                      <strong>{selectedDurationModel}</strong>
+                    </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTargetRoleTitle(null);
-                    setTargetInternshipId(null);
-                  }}
-                  className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
-                >
-                  Clear Selection
-                </button>
+
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                  <Link
+                    href="/#openings"
+                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-200 shadow-2xs transition-colors flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Browse All Openings</span>
+                  </Link>
+                </div>
               </div>
             )}
 
@@ -358,15 +453,28 @@ export default function StudentApplyPage() {
                       className="w-full bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-emerald-600 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none"
                     />
                   </div>
+                </div>
+              </div>
 
+              {/* Section 2: Education */}
+              <div className="space-y-4">
+                <div className="pb-3 border-b border-slate-100">
+                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">2</span>
+                    Academic Background
+                  </h2>
+                  <p className="text-slate-500 text-[11px] mt-0.5">Your current university or educational status</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      College / University Institution *
+                      College / Institution *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Model Engineering College, CUSAT"
+                      placeholder="e.g. University of Delhi / NIT"
                       value={college}
                       onChange={(e) => setCollege(e.target.value)}
                       className="w-full bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-emerald-600 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none"
@@ -375,12 +483,12 @@ export default function StudentApplyPage() {
 
                   <div>
                     <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Degree & Major *
+                      Degree / Major *
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. B.Tech Computer Science / BBA / MBA"
+                      placeholder="e.g. B.Tech Computer Science, MSW"
                       value={degree}
                       onChange={(e) => setDegree(e.target.value)}
                       className="w-full bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-emerald-600 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none"
@@ -389,12 +497,12 @@ export default function StudentApplyPage() {
 
                   <div>
                     <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Current Academic Stage
+                      Current Year of Study *
                     </label>
                     <select
                       value={yearOfStudy}
                       onChange={(e) => setYearOfStudy(e.target.value)}
-                      className="w-full bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-emerald-600 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none font-medium cursor-pointer"
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-600 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none cursor-pointer"
                     >
                       <option value="1st Year">1st Year Undergraduate</option>
                       <option value="2nd Year">2nd Year Undergraduate</option>
@@ -407,63 +515,140 @@ export default function StudentApplyPage() {
                 </div>
               </div>
 
-              {/* Section 2: Programme Selection */}
+              {/* Section 3: Open Position, Domain & Internship Duration */}
               <div className="space-y-4">
-                <div className="pb-3 border-b border-slate-100">
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">2</span>
-                    Discipline & Duration Model Selection
-                  </h2>
-                  <p className="text-slate-500 text-[11px] mt-0.5">Matched to your interests and institutional requirements</p>
+                <div className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">3</span>
+                      Open Position, Domain & Duration
+                    </h2>
+                    <p className="text-slate-500 text-[11px] mt-0.5">
+                      Only active open positions are shown. Each position locks its respective Domain and Duration track.
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 w-fit">
+                    <Lock className="w-3 h-3" />
+                    Domain & Duration Locked
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Select School */}
-                  <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                      <GraduationCap className="w-4 h-4 text-emerald-600" />
-                      Internship School (A through P) *
-                    </label>
+                {/* 1. Open Position Selector */}
+                <div>
+                  <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <Briefcase className="w-4 h-4 text-emerald-600" />
+                      Select Open Position ({openPositions.length} active roles) *
+                    </span>
+                    {isLockedFromOrigin && (
+                      <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        Locked from opening link
+                      </span>
+                    )}
+                  </label>
+
+                  {isLockedFromOrigin ? (
+                    <div className="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold flex items-center justify-between cursor-not-allowed">
+                      <span className="truncate">{targetRoleTitle || "Selected Internship Role"}</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-200/80 px-2 py-0.5 rounded shrink-0 ml-2">
+                        Locked
+                      </span>
+                    </div>
+                  ) : (
                     <select
-                      value={selectedSchoolCode}
-                      onChange={(e) => setSelectedSchoolCode(e.target.value)}
+                      required
+                      value={selectedInternshipId || ""}
+                      onChange={(e) => handlePositionChange(Number(e.target.value))}
                       className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-600 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none cursor-pointer"
                     >
-                      {schools.map((s) => (
-                        <option key={s.id} value={s.code}>
-                          School {s.code}: {s.name}
-                        </option>
-                      ))}
+                      {openPositions.length === 0 ? (
+                        <option value="">No open positions currently available</option>
+                      ) : (
+                        openPositions.map((pos) => (
+                          <option key={pos.id} value={pos.id}>
+                            {pos.title} — Domain {pos.school_code} ({pos.duration_model || pos.duration_hours_months}) [{pos.openings} {pos.openings === 1 ? "seat" : "seats"}]
+                          </option>
+                        ))
+                      )}
                     </select>
+                  )}
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Selecting an open position automatically sets and locks its official Domain and Internship Duration.
+                  </p>
+                </div>
+
+                {/* 2. Locked Domain and Locked Duration Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  {/* Locked Domain Field */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
+                        Internship Domain (School Architecture)
+                      </label>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                        <Lock className="w-3 h-3 text-slate-400" />
+                        Locked
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <select
+                        disabled
+                        value={selectedSchoolCode}
+                        className="w-full bg-slate-100/90 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold cursor-not-allowed appearance-none"
+                      >
+                        {schools.map((s) => (
+                          <option key={s.id} value={s.code}>
+                            Domain {s.code}: {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
                     {selectedSchool && (
-                      <div className="mt-2 p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-[11px] space-y-0.5">
-                        <span className="font-bold block">School {selectedSchool.code} &bull; {selectedSchool.name}</span>
-                        <span className="text-teal-700 block">{selectedSchool.description || "Active professional training track with mentorship."}</span>
+                      <div className="mt-2 p-3 rounded-xl bg-teal-50/80 border border-teal-200 text-teal-900 text-[11px] space-y-0.5">
+                        <span className="font-bold block">
+                          Domain {selectedSchool.code} &bull; {selectedSchool.name}
+                        </span>
+                        <span className="text-teal-700 block">
+                          {selectedSchool.description || "Active professional training track with direct mentorship."}
+                        </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Select Track */}
+                  {/* Locked Duration Track Field */}
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                      <Target className="w-4 h-4 text-teal-600" />
-                      Internship Duration Track *
-                    </label>
-                    <select
-                      value={selectedDurationModel}
-                      onChange={(e) => setSelectedDurationModel(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-600 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold outline-none cursor-pointer"
-                    >
-                      {tracks.map((m) => (
-                        <option key={m.id} value={`${m.model_code} - ${m.title}`}>
-                          {m.model_code} &bull; {m.title} ({m.duration})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
+                        <Clock className="w-3.5 h-3.5 text-teal-600" />
+                        Internship Duration Track
+                      </label>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                        <Lock className="w-3 h-3 text-slate-400" />
+                        Locked
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <select
+                        disabled
+                        value={selectedDurationModel}
+                        className="w-full bg-slate-100/90 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold cursor-not-allowed appearance-none"
+                      >
+                        <option value={selectedDurationModel}>{selectedDurationModel}</option>
+                        {tracks.map((m) => (
+                          <option key={m.id} value={`${m.model_code} - ${m.title}`}>
+                            {m.model_code} &bull; {m.title} ({m.duration})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
                     {selectedTrack && (
-                      <div className="mt-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-[11px] space-y-1">
+                      <div className="mt-2 p-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-[11px] space-y-1">
                         <div className="flex items-center justify-between font-bold text-slate-900">
                           <span>{selectedTrack.model_code}: {selectedTrack.title}</span>
                           <span className="text-emerald-700 flex items-center gap-1">
@@ -477,13 +662,20 @@ export default function StudentApplyPage() {
                     )}
                   </div>
                 </div>
+
+                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-amber-900 text-[11px] flex items-start gap-2 mt-2">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Designated Role Framework:</strong> At MBT, Domain and Duration are structurally bound to each open role to ensure university credit compliance and mentor availability. To apply for a different Domain or Duration, select another open position above.
+                  </span>
+                </div>
               </div>
 
-              {/* Section 3: Profile & Motivation */}
+              {/* Section 4: Profile & Motivation */}
               <div className="space-y-4">
                 <div className="pb-3 border-b border-slate-100">
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">3</span>
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">4</span>
                     Profile Links & Statement of Purpose
                   </h2>
                   <p className="text-slate-500 text-[11px] mt-0.5">Showcase your skills and why you want to contribute</p>

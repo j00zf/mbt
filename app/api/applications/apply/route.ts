@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabase, MBT_SCHOOLS } from "@/lib/supabase";
+import { sendApplicationConfirmationEmail } from "@/lib/mailer";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
       internship_id = null,
+      role_title = null,
       full_name,
       email,
       phone,
@@ -45,6 +47,23 @@ export async function POST(request: Request) {
     }
     if (!resolvedSchoolName) {
       resolvedSchoolName = "General / Multi-Disciplinary";
+    }
+
+    // Attempt to resolve role title if not passed
+    let resolvedRoleTitle = role_title;
+    if (!resolvedRoleTitle && internship_id) {
+      try {
+        const { data: roleData } = await supabase
+          .from("internships")
+          .select("title")
+          .eq("id", Number(internship_id))
+          .maybeSingle();
+        if (roleData?.title) {
+          resolvedRoleTitle = roleData.title;
+        }
+      } catch (err) {
+        console.warn("Could not fetch internship title for email:", err);
+      }
     }
 
     const payload = {
@@ -91,11 +110,33 @@ export async function POST(request: Request) {
       );
     }
 
+    // Trigger confirmation email using Gmail Nodemailer
+    let emailResult: { success: boolean; error?: string; messageId?: string } = {
+      success: false,
+      error: "Not sent",
+    };
+    try {
+      emailResult = await sendApplicationConfirmationEmail({
+        to: payload.email,
+        fullName: payload.full_name,
+        applicationId: data.id,
+        schoolCode: payload.school_code,
+        schoolName: payload.school_name,
+        durationModel: payload.duration_model,
+        roleTitle: resolvedRoleTitle,
+        college: payload.college,
+        degree: payload.degree,
+      });
+    } catch (mailErr) {
+      console.error("Error triggering application confirmation email:", mailErr);
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Application submitted successfully!",
+      message: "Application submitted successfully! Confirmation email has been sent.",
       applicationId: data.id,
       application: data,
+      emailSent: emailResult.success,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";

@@ -171,7 +171,7 @@ export default function AdminDashboardPage() {
     status: "active",
   });
 
-  // Modals - Schools (16 Discipline Architecture)
+  // Modals - Domains (16 Schools Architecture)
   const [isSchoolAddModalOpen, setIsSchoolAddModalOpen] = useState(false);
   const [isSchoolEditModalOpen, setIsSchoolEditModalOpen] = useState(false);
   const [isSchoolDeleteModalOpen, setIsSchoolDeleteModalOpen] = useState(false);
@@ -184,7 +184,7 @@ export default function AdminDashboardPage() {
     is_active: true,
   });
 
-  // Modals - Tracks (5 Duration Models)
+  // Modals - Internship Duration (5 Duration Models)
   const [isTrackAddModalOpen, setIsTrackAddModalOpen] = useState(false);
   const [isTrackEditModalOpen, setIsTrackEditModalOpen] = useState(false);
   const [isTrackDeleteModalOpen, setIsTrackDeleteModalOpen] = useState(false);
@@ -279,7 +279,7 @@ create policy "Allow all operations for internships" on public.internships for a
   constraint programme_schools_pkey primary key (id)
 ) TABLESPACE pg_default;
 
--- Seed the 16 Schools (A through P)
+-- Seed the 16 Domains (Schools A through P)
 insert into public.programme_schools (code, name, sort_order, is_active) values
 ('A', 'Technology & Digital Innovation', 1, true),
 ('B', 'AI, Data Science & Analytics', 2, true),
@@ -637,10 +637,9 @@ create policy "Allow all operations for admins" on public.admins for all using (
   };
 
   // ==========================================
-  // SCHOOLS ACTIONS (16 Schools Dynamic CRUD)
+  // DOMAINS ACTIONS (16 Schools Dynamic CRUD)
   // ==========================================
   const openAddSchoolModal = () => {
-    // Generate next available code if sequential
     const currentCodes = schools.map((s) => s.code.toUpperCase());
     let nextLetter = "Q";
     for (let i = 65; i <= 90; i++) {
@@ -679,7 +678,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
     e.preventDefault();
     setFormError(null);
     if (!schoolForm.code.trim() || !schoolForm.name.trim()) {
-      setFormError("School Code (e.g. 'A') and School Name are required.");
+      setFormError("Domain Code (e.g. 'A') and Domain Name are required.");
       return;
     }
 
@@ -692,11 +691,11 @@ create policy "Allow all operations for admins" on public.admins for all using (
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create school.");
+      if (!res.ok) throw new Error(data.error || "Failed to create domain.");
 
       setIsSchoolAddModalOpen(false);
       await fetchSchools();
-      showToast(`School ${schoolForm.code} created successfully!`);
+      showToast(`Domain ${schoolForm.code} created successfully!`);
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -709,7 +708,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
     if (!selectedSchool) return;
     setFormError(null);
     if (!schoolForm.code.trim() || !schoolForm.name.trim()) {
-      setFormError("School Code and Name are required.");
+      setFormError("Domain Code and Name are required.");
       return;
     }
 
@@ -725,11 +724,11 @@ create policy "Allow all operations for admins" on public.admins for all using (
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update school.");
+      if (!res.ok) throw new Error(data.error || "Failed to update domain.");
 
       setIsSchoolEditModalOpen(false);
       await fetchSchools();
-      showToast(`School ${schoolForm.code} updated successfully!`);
+      showToast(`Domain ${schoolForm.code} updated successfully!`);
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -744,19 +743,19 @@ create policy "Allow all operations for admins" on public.admins for all using (
       const res = await fetch(`/api/admin/schools?id=${selectedSchool.id}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Failed to delete school.");
+      if (!res.ok) throw new Error("Failed to delete domain.");
       setIsSchoolDeleteModalOpen(false);
       await fetchSchools();
-      showToast(`School ${selectedSchool.code} deleted.`);
+      showToast(`Domain ${selectedSchool.code} deleted.`);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to delete school.");
+      alert(err instanceof Error ? err.message : "Failed to delete domain.");
     } finally {
       setActionLoading(false);
     }
   };
 
   // ==========================================
-  // TRACKS ACTIONS (5 Duration Models Dynamic CRUD)
+  // INTERNSHIP DURATION ACTIONS (5 Duration Models)
   // ==========================================
   const openAddTrackModal = () => {
     const nextModelNum = tracks.length + 1;
@@ -953,7 +952,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
     return matchesSearch && matchesStatus && matchesSchool;
   });
 
-  // Filtered schools
+  // Filtered domains
   const filteredSchools = schools.filter((s) => {
     const q = schoolSearchQuery.toLowerCase();
     return (
@@ -963,7 +962,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
     );
   });
 
-  // Filtered tracks
+  // Filtered duration tracks
   const filteredTracks = tracks.filter((t) => {
     const q = trackSearchQuery.toLowerCase();
     return (
@@ -1022,7 +1021,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
               </div>
               <div>
-                <span className="font-bold text-slate-900 text-sm tracking-tight block">
+                <span className="font-extrabold text-slate-900 text-sm tracking-tight block">
                   MBT Internship
                 </span>
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
@@ -1053,8 +1052,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "internships"
-                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1063,8 +1062,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "internships"
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-100 text-slate-600"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {internships.length}
@@ -1078,8 +1077,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "applications"
-                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1088,10 +1087,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "applications"
-                      ? "bg-white/20 text-white"
-                      : pendingAppsCount > 0
-                        ? "bg-emerald-100 text-emerald-800 font-bold"
-                        : "bg-slate-100 text-slate-600"
+                        ? "bg-white/20 text-white"
+                        : pendingAppsCount > 0
+                          ? "bg-emerald-100 text-emerald-800 font-bold"
+                          : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {applications.length}
@@ -1100,10 +1099,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
               </nav>
             </div>
 
-            {/* Architecture Section */}
+            {/* Architecture Section: Domains & Internship Duration */}
             <div>
               <span className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">
-                Programme Structure & Tracks
+                Domains & Internship Duration
               </span>
               <nav className="space-y-1">
                 <button
@@ -1112,18 +1111,18 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "schools"
-                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <GraduationCap className="w-4 h-4" />
-                    <span>16 Schools (Discipline)</span>
+                    <span>Domains </span>
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "schools"
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-100 text-slate-600"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {schools.length}
@@ -1136,18 +1135,18 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "tracks"
-                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <Target className="w-4 h-4" />
-                    <span>5 Duration Models</span>
+                    <span>Internship Duration</span>
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "tracks"
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-100 text-slate-600"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {tracks.length}
@@ -1168,8 +1167,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "admins"
-                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1178,8 +1177,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "admins"
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-100 text-slate-600"
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {admins.length}
@@ -1192,8 +1191,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "schema"
-                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1250,11 +1249,11 @@ create policy "Allow all operations for admins" on public.admins for all using (
             </button>
 
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 capitalize tracking-tight">
+              <h1 className="text-base sm:text-lg font-extrabold text-slate-900 capitalize tracking-tight">
                 {activeTab === "internships" && "Internship Openings Management"}
                 {activeTab === "applications" && "Student Applicant Registration"}
-                {activeTab === "schools" && "Proposed Programme Structure (16 Schools)"}
-                {activeTab === "tracks" && "Internship Duration Models (5 Tracks)"}
+                {activeTab === "schools" && "Domains (16 Schools Architecture)"}
+                {activeTab === "tracks" && "Internship Duration (5 Tracks Models)"}
                 {activeTab === "admins" && "System Administrators"}
                 {activeTab === "schema" && "Supabase SQL Schemas & Seeding"}
               </h1>
@@ -1290,7 +1289,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add School</span>
+                <span>Add Domain</span>
               </button>
             )}
 
@@ -1300,7 +1299,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Add Duration Model</span>
+                <span>Add Internship Duration</span>
               </button>
             )}
           </div>
@@ -1309,7 +1308,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
         {/* Main Body */}
         <main className="p-4 sm:p-8 max-w-7xl w-full mx-auto space-y-6">
           {/* =========================================================================
-              TAB: SCHOOLS (16 Schools Dynamic Discipline Architecture)
+              TAB: DOMAINS (16 Schools Dynamic Architecture)
           ========================================================================= */}
           {activeTab === "schools" && (
             <div className="space-y-6">
@@ -1317,23 +1316,23 @@ create policy "Allow all operations for admins" on public.admins for all using (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
-                    Total Disciplines
+                    Total Domains
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-slate-900 tracking-tight">
+                    <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
                       {schools.length}
                     </span>
-                    <span className="text-xs text-slate-500">schools registered</span>
+                    <span className="text-xs text-slate-500">domains registered</span>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">Discipline architecture tracks</p>
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
-                    Active Schools
+                    Active Domains
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-emerald-600 tracking-tight">
+                    <span className="text-3xl font-extrabold text-emerald-600 tracking-tight">
                       {schools.filter((s) => s.is_active).length}
                     </span>
                     <span className="text-xs text-slate-500">open for enrollment</span>
@@ -1346,10 +1345,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     Internship Roles
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-teal-600 tracking-tight">
+                    <span className="text-3xl font-extrabold text-teal-600 tracking-tight">
                       {internships.length}
                     </span>
-                    <span className="text-xs text-slate-500">roles across schools</span>
+                    <span className="text-xs text-slate-500">roles across domains</span>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">Mapped to MBT functional areas</p>
                 </div>
@@ -1361,7 +1360,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Search by school code (e.g. A, B) or name..."
+                    placeholder="Search domains by code (e.g. A, B) or name..."
                     value={schoolSearchQuery}
                     onChange={(e) => setSchoolSearchQuery(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-600 focus:bg-white transition-all"
@@ -1372,7 +1371,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <button
                     onClick={fetchSchools}
                     className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 cursor-pointer shadow-xs"
-                    title="Refresh Schools"
+                    title="Refresh Domains"
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
@@ -1382,20 +1381,20 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-600/20"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Add School</span>
+                    <span>Add Domain</span>
                   </button>
                 </div>
               </div>
 
-              {/* Schools Grid */}
+              {/* Domains Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {filteredSchools.length === 0 ? (
                   <div className="col-span-full bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-400">
                     <GraduationCap className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="font-semibold text-slate-700">No schools match your search query.</p>
+                    <p className="font-semibold text-slate-700">No domains match your search query.</p>
                     <button
                       onClick={() => setSchoolSearchQuery("")}
-                      className="mt-3 text-xs text-emerald-600 hover:underline font-semibold"
+                      className="mt-3 text-xs text-emerald-600 hover:underline font-semibold cursor-pointer"
                     >
                       Clear search
                     </button>
@@ -1410,14 +1409,14 @@ create policy "Allow all operations for admins" on public.admins for all using (
                       >
                         <div>
                           <div className="flex items-start justify-between mb-3">
-                            <span className="w-8 h-8 rounded-xl bg-slate-900 text-emerald-400 font-bold text-sm flex items-center justify-center shadow-xs">
+                            <span className="w-8 h-8 rounded-xl bg-slate-900 text-emerald-400 font-extrabold text-sm flex items-center justify-center shadow-xs">
                               {school.code}
                             </span>
                             <div className="flex items-center gap-1.5">
                               <span
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${school.is_active
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-slate-100 text-slate-500 border border-slate-200"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-slate-100 text-slate-500 border border-slate-200"
                                   }`}
                               >
                                 {school.is_active ? "Active" : "Inactive"}
@@ -1425,11 +1424,11 @@ create policy "Allow all operations for admins" on public.admins for all using (
                             </div>
                           </div>
 
-                          <h3 className="font-bold text-slate-900 text-sm leading-snug">
+                          <h3 className="font-extrabold text-slate-900 text-sm leading-snug">
                             {school.name}
                           </h3>
                           <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
-                            {school.description || "Core functional discipline within MBT internship."}
+                            {school.description || "Core functional domain within MBT internship."}
                           </p>
 
                           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
@@ -1445,7 +1444,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                           <button
                             onClick={() => openAddInternshipModal(school.code)}
                             className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Create Internship in this school"
+                            title="Create Internship in this domain"
                           >
                             <Plus className="w-3 h-3" />
                             <span>Add Role</span>
@@ -1455,7 +1454,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                             <button
                               onClick={() => openEditSchoolModal(school)}
                               className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
-                              title="Edit School"
+                              title="Edit Domain"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
@@ -1465,7 +1464,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                                 setIsSchoolDeleteModalOpen(true);
                               }}
                               className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="Delete School"
+                              title="Delete Domain"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1480,15 +1479,15 @@ create policy "Allow all operations for admins" on public.admins for all using (
           )}
 
           {/* =========================================================================
-              TAB: DURATION TRACKS (5 Duration Models Dynamic CRUD)
+              TAB: INTERNSHIP DURATION (5 Duration Models Dynamic CRUD)
           ========================================================================= */}
           {activeTab === "tracks" && (
             <div className="space-y-6">
               {/* Header & Overview */}
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">
-                    Internship Duration Models (5 Tracks)
+                  <h2 className="text-xl font-extrabold text-slate-900">
+                    Internship Duration (5 Tracks)
                   </h2>
                   <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
                     Dynamic duration frameworks aligned with student academic levels, credits, and project complexity.
@@ -1500,7 +1499,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-600/20 shrink-0"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Add Duration Model</span>
+                  <span>Add Internship Duration</span>
                 </button>
               </div>
 
@@ -1531,13 +1530,13 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     >
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200">
                             {track.model_code}
                           </span>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${track.is_active
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-slate-100 text-slate-400"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-slate-100 text-slate-400"
                               }`}
                           >
                             {track.is_active ? "Active" : "Inactive"}
@@ -1545,10 +1544,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                         </div>
 
                         <div>
-                          <h4 className="text-lg font-bold text-slate-900 tracking-tight">
+                          <h4 className="text-lg font-black text-slate-900 tracking-tight">
                             {track.title}
                           </h4>
-                          <div className="text-2xl font-bold text-emerald-700 tracking-tight mt-0.5">
+                          <div className="text-2xl font-black text-emerald-700 tracking-tight mt-0.5">
                             {track.duration}
                           </div>
                         </div>
@@ -1624,12 +1623,12 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-slate-900 tracking-tight">
+                    <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
                       {applications.length}
                     </span>
                     <span className="text-xs text-slate-500">registered</span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">Across all 16 schools</p>
+                  <p className="text-xs text-slate-400 mt-1">Across all 16 domains</p>
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
@@ -1642,7 +1641,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-amber-600 tracking-tight">
+                    <span className="text-3xl font-extrabold text-amber-600 tracking-tight">
                       {pendingAppsCount}
                     </span>
                     <span className="text-xs text-slate-500">awaiting</span>
@@ -1660,7 +1659,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-teal-600 tracking-tight">
+                    <span className="text-3xl font-extrabold text-teal-600 tracking-tight">
                       {shortlistedAppsCount}
                     </span>
                     <span className="text-xs text-slate-500">students</span>
@@ -1678,7 +1677,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-indigo-600 tracking-tight">
+                    <span className="text-3xl font-extrabold text-indigo-600 tracking-tight">
                       {acceptedAppsCount}
                     </span>
                     <span className="text-xs text-slate-500">onboarded</span>
@@ -1721,7 +1720,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                       onChange={(e) => setAppSchoolFilter(e.target.value)}
                       className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold cursor-pointer outline-none focus:border-emerald-600"
                     >
-                      <option value="all">All Schools ({schools.length})</option>
+                      <option value="all">All Domains ({schools.length})</option>
                       {schools.map((s) => (
                         <option key={s.id} value={s.code}>
                           School {s.code}: {s.name}
@@ -1748,7 +1747,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                         <th className="px-6 py-3.5">App ID</th>
                         <th className="px-6 py-3.5">Student Information</th>
                         <th className="px-6 py-3.5">College & Degree</th>
-                        <th className="px-6 py-3.5">Applied School & Track</th>
+                        <th className="px-6 py-3.5">Applied Domain & Duration</th>
                         <th className="px-6 py-3.5">Links</th>
                         <th className="px-6 py-3.5">Decision Status</th>
                         <th className="px-6 py-3.5 text-right">Actions</th>
@@ -1824,7 +1823,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                                     className="p-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 text-[11px] flex items-center gap-1 px-2 font-medium"
                                   >
                                     <span>Resume</span>
-                                    <ExternalLink className="w-3 h-3" />
+                                    <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
                                 )}
                                 {app.linkedin_url && (
@@ -1835,7 +1834,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                                     className="p-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 text-[11px] flex items-center gap-1 px-2 font-medium"
                                   >
                                     <span>LinkedIn</span>
-                                    <ExternalLink className="w-3 h-3" />
+                                    <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
                                 )}
                                 {!app.resume_url && !app.linkedin_url && (
@@ -1849,14 +1848,14 @@ create policy "Allow all operations for admins" on public.admins for all using (
                                 value={app.status}
                                 onChange={(e) => handleUpdateAppStatus(app.id, e.target.value)}
                                 className={`text-[11px] font-bold px-2.5 py-1 rounded-full border cursor-pointer outline-none transition-colors ${app.status === "shortlisted"
-                                  ? "bg-teal-50 text-teal-800 border-teal-200"
-                                  : app.status === "accepted"
-                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                    : app.status === "rejected"
-                                      ? "bg-rose-50 text-rose-800 border-rose-200"
-                                      : app.status === "under_review"
-                                        ? "bg-indigo-50 text-indigo-800 border-indigo-200"
-                                        : "bg-amber-50 text-amber-800 border-amber-200"
+                                    ? "bg-teal-50 text-teal-800 border-teal-200"
+                                    : app.status === "accepted"
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                      : app.status === "rejected"
+                                        ? "bg-rose-50 text-rose-800 border-rose-200"
+                                        : app.status === "under_review"
+                                          ? "bg-indigo-50 text-indigo-800 border-indigo-200"
+                                          : "bg-amber-50 text-amber-800 border-amber-200"
                                   }`}
                               >
                                 <option value="pending">Pending</option>
@@ -1912,7 +1911,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
                     Total Postings
                   </span>
-                  <span className="text-3xl font-bold text-slate-900 tracking-tight">
+                  <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
                     {internships.length}
                   </span>
                 </div>
@@ -1920,7 +1919,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
                     Active Roles
                   </span>
-                  <span className="text-3xl font-bold text-emerald-600 tracking-tight">
+                  <span className="text-3xl font-extrabold text-emerald-600 tracking-tight">
                     {activeCount}
                   </span>
                 </div>
@@ -1928,7 +1927,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
                     Total Seats
                   </span>
-                  <span className="text-3xl font-bold text-slate-900 tracking-tight">
+                  <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
                     {totalOpenings}
                   </span>
                 </div>
@@ -1936,7 +1935,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
                     Student Applicants
                   </span>
-                  <span className="text-3xl font-bold text-indigo-600 tracking-tight">
+                  <span className="text-3xl font-extrabold text-indigo-600 tracking-tight">
                     {applications.length}
                   </span>
                 </div>
@@ -1949,7 +1948,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
-                      placeholder="Search roles, schools, locations..."
+                      placeholder="Search roles, domains, locations..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 outline-none"
@@ -1962,7 +1961,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                       onChange={(e) => setSchoolFilter(e.target.value)}
                       className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-medium"
                     >
-                      <option value="all">All Schools ({schools.length})</option>
+                      <option value="all">All Domains ({schools.length})</option>
                       {schools.map((s) => (
                         <option key={s.id} value={s.code}>
                           School {s.code}: {s.name}
@@ -1984,9 +1983,9 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
                       <tr>
                         <th className="px-6 py-3.5">ID</th>
-                        <th className="px-6 py-3.5">School</th>
+                        <th className="px-6 py-3.5">Domain</th>
                         <th className="px-6 py-3.5">Role Title</th>
-                        <th className="px-6 py-3.5">Track</th>
+                        <th className="px-6 py-3.5">Duration Track</th>
                         <th className="px-6 py-3.5">Workplace</th>
                         <th className="px-6 py-3.5">Seats</th>
                         <th className="px-6 py-3.5">Status</th>
@@ -2104,12 +2103,12 @@ create policy "Allow all operations for admins" on public.admins for all using (
           ========================================================================= */}
           {activeTab === "schema" && (
             <div className="space-y-6">
-              {/* Schools Table SQL */}
+              {/* Domains Table SQL */}
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">
-                      16 Schools (Discipline Architecture) Schema
+                      Domains (16 Schools Architecture) Schema
                     </h3>
                     <p className="text-xs text-slate-500">
                       Table <code className="font-mono text-slate-700 font-semibold">public.programme_schools</code>
@@ -2132,12 +2131,12 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </pre>
               </div>
 
-              {/* Duration Models SQL */}
+              {/* Internship Duration Models SQL */}
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">
-                      5 Duration Models (Tracks) Schema
+                      Internship Duration (5 Tracks Models) Schema
                     </h3>
                     <p className="text-xs text-slate-500">
                       Table <code className="font-mono text-slate-700 font-semibold">public.duration_models</code>
@@ -2243,16 +2242,16 @@ create policy "Allow all operations for admins" on public.admins for all using (
       </div>
 
       {/* =========================================================================
-          MODALS: SCHOOLS (ADD, EDIT, DELETE)
+          MODALS: DOMAINS (ADD, EDIT, DELETE)
       ========================================================================= */}
-      {/* 1. Add School Modal */}
+      {/* 1. Add Domain Modal */}
       {isSchoolAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Add New School / Discipline</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Define a functional department in the programme architecture</p>
+                <h3 className="font-bold text-slate-900 text-base">Add New Domain</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Define a functional department domain in the architecture</p>
               </div>
               <button
                 onClick={() => setIsSchoolAddModalOpen(false)}
@@ -2283,7 +2282,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">School Name</label>
+                  <label className="block font-bold text-slate-700 mb-1">Domain Name</label>
                   <input
                     type="text"
                     required
@@ -2301,7 +2300,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   rows={3}
                   value={schoolForm.description}
                   onChange={(e) => setSchoolForm({ ...schoolForm, description: e.target.value })}
-                  placeholder="Summary of domain scope, projects, and activities in this school..."
+                  placeholder="Summary of domain scope, projects, and activities in this domain..."
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
                 />
               </div>
@@ -2344,7 +2343,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   disabled={actionLoading}
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-sm shadow-emerald-600/20"
                 >
-                  {actionLoading ? "Saving..." : "Create School"}
+                  {actionLoading ? "Saving..." : "Create Domain"}
                 </button>
               </div>
             </form>
@@ -2352,14 +2351,14 @@ create policy "Allow all operations for admins" on public.admins for all using (
         </div>
       )}
 
-      {/* 2. Edit School Modal */}
+      {/* 2. Edit Domain Modal */}
       {isSchoolEditModalOpen && selectedSchool && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Edit School {selectedSchool.code}</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Modify school title, discipline description, or ordering</p>
+                <h3 className="font-bold text-slate-900 text-base">Edit Domain {selectedSchool.code}</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Modify domain title, description, or ordering</p>
               </div>
               <button
                 onClick={() => setIsSchoolEditModalOpen(false)}
@@ -2389,7 +2388,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">School Name</label>
+                  <label className="block font-bold text-slate-700 mb-1">Domain Name</label>
                   <input
                     type="text"
                     required
@@ -2456,16 +2455,16 @@ create policy "Allow all operations for admins" on public.admins for all using (
         </div>
       )}
 
-      {/* 3. Delete School Modal */}
+      {/* 3. Delete Domain Modal */}
       {isSchoolDeleteModalOpen && selectedSchool && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-center">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3">
               <Trash2 className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-bold text-slate-900">Delete School {selectedSchool.code}?</h3>
+            <h3 className="text-base font-bold text-slate-900">Delete Domain {selectedSchool.code}?</h3>
             <p className="text-xs text-slate-500 mt-1 mb-4">
-              Are you sure you want to remove <strong>{selectedSchool.name}</strong> from the programme architecture?
+              Are you sure you want to remove <strong>{selectedSchool.name}</strong> from the domain architecture?
             </p>
             <div className="flex items-center justify-center gap-2">
               <button
@@ -2487,15 +2486,15 @@ create policy "Allow all operations for admins" on public.admins for all using (
       )}
 
       {/* =========================================================================
-          MODALS: DURATION TRACKS (ADD, EDIT, DELETE)
+          MODALS: INTERNSHIP DURATION (ADD, EDIT, DELETE)
       ========================================================================= */}
-      {/* 1. Add Track Modal */}
+      {/* 1. Add Internship Duration Track Modal */}
       {isTrackAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div>
-                <h3 className="font-bold text-slate-900 text-base">Add Duration Model Track</h3>
+                <h3 className="font-bold text-slate-900 text-base">Add Internship Duration Track</h3>
                 <p className="text-xs text-slate-400 mt-0.5">Define student internship timeline, duration, and target scope</p>
               </div>
               <button
@@ -2782,7 +2781,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Create Internship Opening</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Add an internship under one of the 16 schools & 5 duration tracks</p>
+                <p className="text-xs text-slate-400 mt-0.5">Add an internship under one of the 16 domains & 5 duration tracks</p>
               </div>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
@@ -2798,7 +2797,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
             <form onSubmit={handleInternshipCreateSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Discipline / School</label>
+                  <label className="block font-bold text-slate-700 mb-1">Domain</label>
                   <select
                     value={internshipForm.school_code}
                     onChange={(e) => handleSchoolChange(e.target.value)}
@@ -2813,7 +2812,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Duration Model Track</label>
+                  <label className="block font-bold text-slate-700 mb-1">Duration Track</label>
                   <select
                     value={internshipForm.duration_model}
                     onChange={(e) => handleModelChange(e.target.value)}
@@ -2956,7 +2955,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
             <form onSubmit={handleInternshipEditSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Discipline / School</label>
+                  <label className="block font-bold text-slate-700 mb-1">Domain</label>
                   <select
                     value={internshipForm.school_code}
                     onChange={(e) => handleSchoolChange(e.target.value)}
@@ -2971,7 +2970,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Duration Model Track</label>
+                  <label className="block font-bold text-slate-700 mb-1">Duration Track</label>
                   <select
                     value={internshipForm.duration_model}
                     onChange={(e) => handleModelChange(e.target.value)}
@@ -3109,7 +3108,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 px-2 py-0.5 rounded">
                   School {selectedInternship.school_code}: {selectedInternship.school_name}
                 </span>
-                <h3 className="font-bold text-slate-900 text-lg mt-1">{selectedInternship.title}</h3>
+                <h3 className="font-extrabold text-slate-900 text-lg mt-1">{selectedInternship.title}</h3>
                 <p className="text-xs text-slate-500">{selectedInternship.duration_model} &bull; {selectedInternship.workplace_type} ({selectedInternship.location})</p>
               </div>
               <button onClick={() => setIsViewModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
@@ -3218,7 +3217,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
                   Reference: #APP-{selectedApplication.id}
                 </span>
-                <h3 className="text-xl font-bold text-slate-900 mt-1">{selectedApplication.full_name}</h3>
+                <h3 className="text-xl font-extrabold text-slate-900 mt-1">{selectedApplication.full_name}</h3>
                 <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
                   <span>{selectedApplication.email}</span>
@@ -3249,7 +3248,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Preferred Discipline</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Preferred Domain</span>
                   <span className="font-bold text-teal-800">
                     School {selectedApplication.school_code}: {selectedApplication.school_name}
                   </span>
