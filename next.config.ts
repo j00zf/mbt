@@ -1,7 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [
+      {
+        source: "/login",
+        destination: "/admin/login",
+      },
+      {
+        source: "/register",
+        destination: "/admin/register",
+      },
+      {
+        source: "/dashboard",
+        destination: "/admin/dashboard",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
