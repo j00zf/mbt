@@ -1021,7 +1021,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
               </div>
               <div>
-                <span className="font-extrabold text-slate-900 text-sm tracking-tight block">
+                <span className="font-bold text-slate-900 text-sm tracking-tight block">
                   MBT Internship
                 </span>
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
@@ -1052,8 +1052,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "internships"
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1062,8 +1062,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "internships"
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-600"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {internships.length}
@@ -1077,8 +1077,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "applications"
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1087,10 +1087,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "applications"
-                        ? "bg-white/20 text-white"
-                        : pendingAppsCount > 0
-                          ? "bg-emerald-100 text-emerald-800 font-bold"
-                          : "bg-slate-100 text-slate-600"
+                      ? "bg-white/20 text-white"
+                      : pendingAppsCount > 0
+                        ? "bg-emerald-100 text-emerald-800 font-bold"
+                        : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {applications.length}
@@ -1111,8 +1111,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "schools"
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1121,8 +1121,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "schools"
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-600"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {schools.length}
@@ -1135,8 +1135,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "tracks"
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1145,8 +1145,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "tracks"
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-600"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {tracks.length}
@@ -1167,8 +1167,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "admins"
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1177,8 +1177,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "admins"
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 text-slate-600"
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 text-slate-600"
                       }`}
                   >
                     {admins.length}
@@ -1191,8 +1191,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     setMobileSidebarOpen(false);
                   }}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "schema"
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1249,7 +1249,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
             </button>
 
             <div>
-              <h1 className="text-base sm:text-lg font-extrabold text-slate-900 capitalize tracking-tight">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 capitalize tracking-tight">
                 {activeTab === "internships" && "Internship Openings Management"}
                 {activeTab === "applications" && "Student Applicant Registration"}
                 {activeTab === "schools" && "Domains (16 Schools Architecture)"}
@@ -1319,7 +1319,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     Total Domains
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                    <span className="text-3xl font-bold text-slate-900 tracking-tight">
                       {schools.length}
                     </span>
                     <span className="text-xs text-slate-500">domains registered</span>
@@ -1332,7 +1332,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     Active Domains
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-extrabold text-emerald-600 tracking-tight">
+                    <span className="text-3xl font-bold text-emerald-600 tracking-tight">
                       {schools.filter((s) => s.is_active).length}
                     </span>
                     <span className="text-xs text-slate-500">open for enrollment</span>
@@ -1345,7 +1345,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     Internship Roles
                   </span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-extrabold text-teal-600 tracking-tight">
+                    <span className="text-3xl font-bold text-teal-600 tracking-tight">
                       {internships.length}
                     </span>
                     <span className="text-xs text-slate-500">roles across domains</span>
@@ -1409,14 +1409,14 @@ create policy "Allow all operations for admins" on public.admins for all using (
                       >
                         <div>
                           <div className="flex items-start justify-between mb-3">
-                            <span className="w-8 h-8 rounded-xl bg-slate-900 text-emerald-400 font-extrabold text-sm flex items-center justify-center shadow-xs">
+                            <span className="w-8 h-8 rounded-xl bg-slate-900 text-emerald-400 font-bold text-sm flex items-center justify-center shadow-xs">
                               {school.code}
                             </span>
                             <div className="flex items-center gap-1.5">
                               <span
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${school.is_active
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                    : "bg-slate-100 text-slate-500 border border-slate-200"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-slate-100 text-slate-500 border border-slate-200"
                                   }`}
                               >
                                 {school.is_active ? "Active" : "Inactive"}
@@ -1424,7 +1424,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                             </div>
                           </div>
 
-                          <h3 className="font-extrabold text-slate-900 text-sm leading-snug">
+                          <h3 className="font-bold text-slate-900 text-sm leading-snug">
                             {school.name}
                           </h3>
                           <p className="text-xs text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
@@ -1486,7 +1486,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
               {/* Header & Overview */}
               <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-extrabold text-slate-900">
+                  <h2 className="text-xl font-bold text-slate-900">
                     Internship Duration (5 Tracks)
                   </h2>
                   <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
@@ -1530,13 +1530,13 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     >
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200">
                             {track.model_code}
                           </span>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${track.is_active
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-slate-100 text-slate-400"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-400"
                               }`}
                           >
                             {track.is_active ? "Active" : "Inactive"}
@@ -1544,10 +1544,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                         </div>
 
                         <div>
-                          <h4 className="text-lg font-black text-slate-900 tracking-tight">
+                          <h4 className="text-lg font-bold text-slate-900 tracking-tight">
                             {track.title}
                           </h4>
-                          <div className="text-2xl font-black text-emerald-700 tracking-tight mt-0.5">
+                          <div className="text-2xl font-bold text-emerald-700 tracking-tight mt-0.5">
                             {track.duration}
                           </div>
                         </div>
@@ -1623,7 +1623,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                    <span className="text-3xl font-bold text-slate-900 tracking-tight">
                       {applications.length}
                     </span>
                     <span className="text-xs text-slate-500">registered</span>
@@ -1641,7 +1641,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-3xl font-extrabold text-amber-600 tracking-tight">
+                    <span className="text-3xl font-bold text-amber-600 tracking-tight">
                       {pendingAppsCount}
                     </span>
                     <span className="text-xs text-slate-500">awaiting</span>
@@ -1659,7 +1659,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-3xl font-extrabold text-teal-600 tracking-tight">
+                    <span className="text-3xl font-bold text-teal-600 tracking-tight">
                       {shortlistedAppsCount}
                     </span>
                     <span className="text-xs text-slate-500">students</span>
@@ -1677,7 +1677,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </div>
                   </div>
                   <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-3xl font-extrabold text-indigo-600 tracking-tight">
+                    <span className="text-3xl font-bold text-indigo-600 tracking-tight">
                       {acceptedAppsCount}
                     </span>
                     <span className="text-xs text-slate-500">onboarded</span>
@@ -1848,14 +1848,14 @@ create policy "Allow all operations for admins" on public.admins for all using (
                                 value={app.status}
                                 onChange={(e) => handleUpdateAppStatus(app.id, e.target.value)}
                                 className={`text-[11px] font-bold px-2.5 py-1 rounded-full border cursor-pointer outline-none transition-colors ${app.status === "shortlisted"
-                                    ? "bg-teal-50 text-teal-800 border-teal-200"
-                                    : app.status === "accepted"
-                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                      : app.status === "rejected"
-                                        ? "bg-rose-50 text-rose-800 border-rose-200"
-                                        : app.status === "under_review"
-                                          ? "bg-indigo-50 text-indigo-800 border-indigo-200"
-                                          : "bg-amber-50 text-amber-800 border-amber-200"
+                                  ? "bg-teal-50 text-teal-800 border-teal-200"
+                                  : app.status === "accepted"
+                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                    : app.status === "rejected"
+                                      ? "bg-rose-50 text-rose-800 border-rose-200"
+                                      : app.status === "under_review"
+                                        ? "bg-indigo-50 text-indigo-800 border-indigo-200"
+                                        : "bg-amber-50 text-amber-800 border-amber-200"
                                   }`}
                               >
                                 <option value="pending">Pending</option>
@@ -1911,7 +1911,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
                     Total Postings
                   </span>
-                  <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                  <span className="text-3xl font-bold text-slate-900 tracking-tight">
                     {internships.length}
                   </span>
                 </div>
@@ -1919,7 +1919,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
                     Active Roles
                   </span>
-                  <span className="text-3xl font-extrabold text-emerald-600 tracking-tight">
+                  <span className="text-3xl font-bold text-emerald-600 tracking-tight">
                     {activeCount}
                   </span>
                 </div>
@@ -1927,7 +1927,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
                     Total Seats
                   </span>
-                  <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                  <span className="text-3xl font-bold text-slate-900 tracking-tight">
                     {totalOpenings}
                   </span>
                 </div>
@@ -1935,7 +1935,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 block mb-1">
                     Student Applicants
                   </span>
-                  <span className="text-3xl font-extrabold text-indigo-600 tracking-tight">
+                  <span className="text-3xl font-bold text-indigo-600 tracking-tight">
                     {applications.length}
                   </span>
                 </div>
@@ -3108,7 +3108,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 px-2 py-0.5 rounded">
                   School {selectedInternship.school_code}: {selectedInternship.school_name}
                 </span>
-                <h3 className="font-extrabold text-slate-900 text-lg mt-1">{selectedInternship.title}</h3>
+                <h3 className="font-bold text-slate-900 text-lg mt-1">{selectedInternship.title}</h3>
                 <p className="text-xs text-slate-500">{selectedInternship.duration_model} &bull; {selectedInternship.workplace_type} ({selectedInternship.location})</p>
               </div>
               <button onClick={() => setIsViewModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
@@ -3217,7 +3217,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
                   Reference: #APP-{selectedApplication.id}
                 </span>
-                <h3 className="text-xl font-extrabold text-slate-900 mt-1">{selectedApplication.full_name}</h3>
+                <h3 className="text-xl font-bold text-slate-900 mt-1">{selectedApplication.full_name}</h3>
                 <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
                   <span>{selectedApplication.email}</span>

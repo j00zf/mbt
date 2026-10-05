@@ -506,9 +506,10 @@ export default function StudentApplyPage() {
                     >
                       <option value="1st Year">1st Year Undergraduate</option>
                       <option value="2nd Year">2nd Year Undergraduate</option>
-                      <option value="3rd Year / Penultimate Year">3rd Year / Penultimate Year</option>
-                      <option value="Final Year">Final Year Undergraduate</option>
-                      <option value="Post-Graduate / Masters">Post-Graduate / Masters</option>
+                      <option value="3rd Year">3rd Year Undergraduate</option>
+                      <option value="4th Year">4th Year Undergraduate</option>
+                      <option value="PG 1st Year">1st Year Post-Graduate</option>
+                      <option value="PG 2nd Year">2nd Year Post-Graduate</option>
                       <option value="Recent Graduate">Recent Graduate</option>
                     </select>
                   </div>
@@ -521,16 +522,12 @@ export default function StudentApplyPage() {
                   <div>
                     <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">3</span>
-                      Open Position, Domain & Duration
+                      Open Position Selection
                     </h2>
                     <p className="text-slate-500 text-[11px] mt-0.5">
-                      Only active open positions are shown. Each position locks its respective Domain and Duration track.
+                      Select an active open position to view its assigned Domain and Duration.
                     </p>
                   </div>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 w-fit">
-                    <Lock className="w-3 h-3" />
-                    Domain & Duration Locked
-                  </span>
                 </div>
 
                 {/* 1. Open Position Selector */}
@@ -573,101 +570,47 @@ export default function StudentApplyPage() {
                       )}
                     </select>
                   )}
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Selecting an open position automatically sets and locks its official Domain and Internship Duration.
-                  </p>
-                </div>
 
-                {/* 2. Locked Domain and Locked Duration Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  {/* Locked Domain Field */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
-                        <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
-                        Internship Domain (School Architecture)
-                      </label>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                        <Lock className="w-3 h-3 text-slate-400" />
-                        Locked
-                      </span>
-                    </div>
-
-                    <div className="relative">
-                      <select
-                        disabled
-                        value={selectedSchoolCode}
-                        className="w-full bg-slate-100/90 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold cursor-not-allowed appearance-none"
-                      >
-                        {schools.map((s) => (
-                          <option key={s.id} value={s.code}>
-                            Domain {s.code}: {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {selectedSchool && (
-                      <div className="mt-2 p-3 rounded-xl bg-teal-50/80 border border-teal-200 text-teal-900 text-[11px] space-y-0.5">
-                        <span className="font-bold block">
-                          Domain {selectedSchool.code} &bull; {selectedSchool.name}
-                        </span>
-                        <span className="text-teal-700 block">
-                          {selectedSchool.description || "Active professional training track with direct mentorship."}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Locked Duration Track Field */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
-                        <Clock className="w-3.5 h-3.5 text-teal-600" />
-                        Internship Duration Track
-                      </label>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                        <Lock className="w-3 h-3 text-slate-400" />
-                        Locked
-                      </span>
-                    </div>
-
-                    <div className="relative">
-                      <select
-                        disabled
-                        value={selectedDurationModel}
-                        className="w-full bg-slate-100/90 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold cursor-not-allowed appearance-none"
-                      >
-                        <option value={selectedDurationModel}>{selectedDurationModel}</option>
-                        {tracks.map((m) => (
-                          <option key={m.id} value={`${m.model_code} - ${m.title}`}>
-                            {m.model_code} &bull; {m.title} ({m.duration})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {selectedTrack && (
-                      <div className="mt-2 p-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-[11px] space-y-1">
-                        <div className="flex items-center justify-between font-bold text-slate-900">
-                          <span>{selectedTrack.model_code}: {selectedTrack.title}</span>
-                          <span className="text-emerald-700 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {selectedTrack.duration}
-                          </span>
+                  {/* Below selected position: show Domain and Duration details cleanly */}
+                  {selectedInternshipId && (
+                    <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-50/70 to-teal-50/70 border border-emerald-200/80 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-white border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+                            <GraduationCap className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">
+                              Assigned Domain
+                            </span>
+                            <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                              Domain {selectedSchool?.code}: {selectedSchool?.name}
+                            </span>
+                            <span className="text-[11px] text-slate-500 block mt-0.5">
+                              {selectedSchool?.description || "Structured functional discipline with assigned mentors."}
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-slate-600"><strong>Suitable:</strong> {selectedTrack.suitable_for}</p>
-                        <p className="text-slate-600"><strong>Focus:</strong> {selectedTrack.focus}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-amber-900 text-[11px] flex items-start gap-2 mt-2">
-                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Designated Role Framework:</strong> At MBT, Domain and Duration are structurally bound to each open role to ensure university credit compliance and mentor availability. To apply for a different Domain or Duration, select another open position above.
-                  </span>
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-white border border-teal-200 text-teal-700 flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+                            <Clock className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 block">
+                              Internship Duration
+                            </span>
+                            <span className="font-bold text-slate-900 text-xs block mt-0.5">
+                              {selectedDurationModel} {selectedTrack?.duration ? `(${selectedTrack.duration})` : ""}
+                            </span>
+                            <span className="text-[11px] text-slate-500 block mt-0.5">
+                              {selectedTrack?.focus || "Defined project milestones & deliverables."}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
