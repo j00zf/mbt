@@ -188,7 +188,7 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-xs font-bold text-emerald-800 shadow-2xs">
             <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-            <span>Accepting Applications &bull; 16 Schools &bull; 5 Duration Models</span>
+            <span>Accepting Applications </span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-bold text-slate-900 tracking-tight leading-[1.12]">
@@ -202,25 +202,6 @@ export default function HomePage() {
             Explore live openings across 16 specialized discipline schools — from Artificial Intelligence and Design to Youth Development and Public Governance. Click any role to view detailed deliverables and register immediately.
           </p>
 
-          {/* Quick Metrics Bar */}
-          <div className="pt-4 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs text-slate-700 font-semibold">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
-              <Briefcase className="w-4 h-4 text-emerald-600" />
-              <span><strong>{internships.length}</strong> Live Openings</span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
-              <Building className="w-4 h-4 text-teal-600" />
-              <span><strong>16</strong> Discipline Schools</span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
-              <Clock className="w-4 h-4 text-indigo-600" />
-              <span><strong>5</strong> Duration Models</span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
-              <Users className="w-4 h-4 text-emerald-600" />
-              <span><strong>{totalSeats}</strong> Total Seats</span>
-            </div>
-          </div>
 
           {/* CTAs */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
