@@ -175,12 +175,6 @@ export default function HomePage() {
               <span>Apply for Internship</span>
             </Link>
 
-            <Link
-              href="/admin/login"
-              className="hidden sm:inline-flex text-xs font-semibold text-slate-700 hover:text-slate-900 border border-slate-200 hover:bg-slate-100 px-3 py-2 rounded-xl transition-colors"
-            >
-              Admin Portal
-            </Link>
           </div>
         </div>
       </header>

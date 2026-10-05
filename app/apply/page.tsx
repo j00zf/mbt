@@ -236,12 +236,7 @@ export default function StudentApplyPage() {
               <span>Back to Home</span>
             </Link>
 
-            <Link
-              href="/admin/login"
-              className="text-xs font-semibold text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-xl hover:bg-slate-100 transition-colors"
-            >
-              Admin Portal
-            </Link>
+
           </div>
         </div>
       </header>
