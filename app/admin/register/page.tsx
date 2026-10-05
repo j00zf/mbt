@@ -104,7 +104,7 @@ export default function AdminRegisterPage() {
               <ShieldCheck className="w-7 h-7 text-emerald-600" />
             </div>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Admin Registration
           </h1>
           <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5 font-medium">
@@ -219,15 +219,14 @@ export default function AdminRegisterPage() {
                 <div className="mt-2">
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                     <div
-                      className={`h-full transition-all duration-300 ${
-                        strength <= 25
+                      className={`h-full transition-all duration-300 ${strength <= 25
                           ? "w-1/4 bg-rose-500"
                           : strength <= 50
-                          ? "w-2/4 bg-amber-500"
-                          : strength <= 75
-                          ? "w-3/4 bg-blue-500"
-                          : "w-full bg-emerald-500"
-                      }`}
+                            ? "w-2/4 bg-amber-500"
+                            : strength <= 75
+                              ? "w-3/4 bg-blue-500"
+                              : "w-full bg-emerald-500"
+                        }`}
                     />
                   </div>
                   <span className="text-[11px] text-slate-500 mt-1 block">

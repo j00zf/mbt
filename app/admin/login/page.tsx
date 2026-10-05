@@ -81,7 +81,7 @@ export default function AdminLoginPage() {
               <Shield className="w-7 h-7 text-emerald-600" />
             </div>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Admin Portal Login
           </h1>
           <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5 font-medium">

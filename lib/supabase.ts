@@ -141,7 +141,7 @@ export interface Internship {
   deadline?: string | null;
   status: "active" | "draft" | "closed";
   created_by?: number | null;
-  created_at: string;
+  created_at?: string;
   updated_at?: string | null;
 }
 
@@ -162,6 +162,6 @@ export interface StudentApplication {
   statement_of_purpose?: string | null;
   status: "pending" | "under_review" | "shortlisted" | "accepted" | "rejected";
   notes?: string | null;
-  created_at: string;
+  created_at?: string;
   updated_at?: string | null;
 }

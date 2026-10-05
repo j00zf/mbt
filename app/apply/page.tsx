@@ -42,6 +42,24 @@ export default function StudentApplyPage() {
   const [error, setError] = useState<string | null>(null);
   const [submittedAppId, setSubmittedAppId] = useState<number | null>(null);
 
+  const [targetInternshipId, setTargetInternshipId] = useState<number | null>(null);
+  const [targetRoleTitle, setTargetRoleTitle] = useState<string | null>(null);
+
+  // Read URL query params on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const schoolParam = params.get("school");
+      const trackParam = params.get("track");
+      const roleParam = params.get("role");
+      const idParam = params.get("internshipId");
+      if (schoolParam) setSelectedSchoolCode(schoolParam.toUpperCase());
+      if (trackParam) setSelectedDurationModel(trackParam);
+      if (idParam) setTargetInternshipId(Number(idParam));
+      if (roleParam) setTargetRoleTitle(roleParam);
+    }
+  }, []);
+
   // Load active schools and tracks
   useEffect(() => {
     async function loadData() {
@@ -100,6 +118,7 @@ export default function StudentApplyPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          internship_id: targetInternshipId,
           full_name: fullName,
           email,
           phone,
@@ -140,7 +159,7 @@ export default function StudentApplyPage() {
               </div>
             </div>
             <div>
-              <span className="font-extrabold text-slate-900 tracking-tight text-sm">
+              <span className="font-bold text-slate-900 tracking-tight text-sm">
                 MBT Internship Programme
               </span>
               <span className="hidden sm:inline-block ml-2 px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
@@ -181,7 +200,7 @@ export default function StudentApplyPage() {
               Registration Received
             </span>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-3 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-3 tracking-tight">
               Application Successfully Submitted!
             </h1>
 
@@ -244,7 +263,7 @@ export default function StudentApplyPage() {
                 <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                 MBT Internship & Young Professional Programme
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
                 Apply for MBT Internship
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
@@ -259,6 +278,30 @@ export default function StudentApplyPage() {
                   <p className="font-semibold">Unable to submit application</p>
                   <p className="text-rose-700 mt-0.5">{error}</p>
                 </div>
+              </div>
+            )}
+
+            {targetRoleTitle && (
+              <div className="max-w-2xl mx-auto p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                    🎯
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">Target Internship Selected</span>
+                    <span className="font-bold text-slate-900 text-sm">{targetRoleTitle}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetRoleTitle(null);
+                    setTargetInternshipId(null);
+                  }}
+                  className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline cursor-pointer"
+                >
+                  Clear Selection
+                </button>
               </div>
             )}
 
