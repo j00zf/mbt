@@ -67,64 +67,64 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden">
       {/* Ambient background glows */}
-      <div className="absolute top-1/4 -right-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 -right-32 w-96 h-96 bg-emerald-100/70 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 -left-32 w-96 h-96 bg-teal-100/70 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main card */}
       <div className="w-full max-w-md relative z-10">
         {/* Brand header */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-emerald-400 p-[1px] shadow-lg shadow-indigo-500/20 mb-4">
-            <div className="w-full h-full bg-slate-900 rounded-2xl flex items-center justify-center">
-              <Shield className="w-7 h-7 text-indigo-400" />
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-[1px] shadow-lg shadow-emerald-500/10 mb-4">
+            <div className="w-full h-full bg-white rounded-2xl flex items-center justify-center">
+              <Shield className="w-7 h-7 text-emerald-600" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
             Admin Portal Login
           </h1>
-          <p className="text-sm text-slate-400 mt-2 flex items-center gap-1.5">
-            <Database className="w-4 h-4 text-emerald-400" />
-            Supabase Authenticated &bull; <code className="text-xs bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono">public.admins</code>
+          <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5 font-medium">
+            <Database className="w-3.5 h-3.5 text-emerald-600" />
+            Supabase Authenticated &bull; <code className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono font-medium border border-slate-200">public.admins</code>
           </p>
         </div>
 
         {/* Card Body */}
-        <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl shadow-black/50">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xl shadow-slate-200/60">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start gap-3 animate-fadeIn">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-400" />
+            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-3 animate-fadeIn">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
               <div>
-                <p className="font-medium">Authentication Failed</p>
-                <p className="text-xs text-rose-300/80 mt-0.5">{error}</p>
+                <p className="font-semibold">Authentication Failed</p>
+                <p className="text-xs text-rose-700 mt-0.5">{error}</p>
               </div>
             </div>
           )}
 
           {success && (
-            <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex items-start gap-3 animate-fadeIn">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-400" />
+            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-3 animate-fadeIn">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-600" />
               <div>
-                <p className="font-medium">Welcome back!</p>
-                <p className="text-xs text-emerald-300/80 mt-0.5">
+                <p className="font-semibold">Welcome back!</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
                   Redirecting to Admin Dashboard...
                 </p>
               </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email Address */}
             <div>
               <label
                 htmlFor="email"
-                className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2"
+                className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5"
               >
                 Admin Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   id="email"
                   type="email"
@@ -132,23 +132,21 @@ export default function AdminLoginPage() {
                   placeholder="admin@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition-all"
+                  className="w-full bg-slate-50/60 hover:bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label
-                  htmlFor="password"
-                  className="block text-xs font-semibold uppercase tracking-wider text-slate-400"
-                >
-                  Password
-                </label>
-              </div>
+              <label
+                htmlFor="password"
+                className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5"
+              >
+                Password
+              </label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -156,17 +154,17 @@ export default function AdminLoginPage() {
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-950/60 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl pl-11 pr-11 py-3 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition-all"
+                  className="w-full bg-slate-50/60 hover:bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-4 h-4" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                   )}
                 </button>
               </div>
@@ -176,7 +174,7 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading || success}
-              className="w-full mt-2 bg-gradient-to-r from-indigo-500 to-emerald-500 hover:from-indigo-400 hover:to-emerald-400 disabled:opacity-50 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
+              className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold py-3 px-4 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
             >
               {loading ? (
                 <>
@@ -198,12 +196,12 @@ export default function AdminLoginPage() {
           </form>
 
           {/* Footer link */}
-          <div className="mt-8 pt-6 border-t border-slate-800/80 text-center">
-            <p className="text-sm text-slate-400">
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-500">
               Need a new admin account?{" "}
               <Link
                 href="/admin/register"
-                className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                className="text-emerald-700 hover:text-emerald-800 font-semibold transition-colors"
               >
                 Register here
               </Link>
@@ -212,8 +210,8 @@ export default function AdminLoginPage() {
         </div>
 
         {/* Database info footer */}
-        <div className="mt-6 text-center text-xs text-slate-600">
-          Supabase PostgreSQL &bull; Table <span className="font-mono text-slate-500">public.admins</span>
+        <div className="mt-6 text-center text-xs text-slate-500">
+          Supabase PostgreSQL &bull; Table <span className="font-mono text-slate-700 font-medium">public.admins</span>
         </div>
       </div>
     </div>
