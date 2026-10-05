@@ -298,13 +298,20 @@ export const DEFAULT_INITIAL_INTERNSHIPS: Omit<Internship, "id">[] = [
   },
 ];
 
+let memoryInternships: Internship[] | null = null;
+
 export function getLocalInternships(): Internship[] {
+  if (memoryInternships && memoryInternships.length > 0) {
+    return memoryInternships;
+  }
+
   ensureDirectoryExists();
   try {
     if (fs.existsSync(INTERNSHIPS_FILE)) {
       const content = fs.readFileSync(INTERNSHIPS_FILE, "utf-8");
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        memoryInternships = parsed;
         return parsed;
       }
     }
@@ -318,22 +325,24 @@ export function getLocalInternships(): Internship[] {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }));
+  memoryInternships = seeded;
   saveLocalInternships(seeded);
   return seeded;
 }
 
 export function saveLocalInternships(items: Internship[]) {
+  memoryInternships = items;
   ensureDirectoryExists();
   try {
     fs.writeFileSync(INTERNSHIPS_FILE, JSON.stringify(items, null, 2), "utf-8");
   } catch (err) {
-    console.error("Failed to write internships file:", err);
+    console.error("Failed to write internships file (persisted in memory):", err);
   }
 }
 
 export function addLocalInternship(item: Omit<Internship, "id">): Internship {
   const current = getLocalInternships();
-  const nextId = current.length > 0 ? Math.max(...current.map((i) => i.id)) + 1 : 1;
+  const nextId = current.length > 0 ? Math.max(...current.map((i) => Number(i.id) || 0)) + 1 : 1;
   const newInternship: Internship = {
     ...item,
     id: nextId,
@@ -345,23 +354,55 @@ export function addLocalInternship(item: Omit<Internship, "id">): Internship {
   return newInternship;
 }
 
-export function updateLocalInternship(id: number, updates: Partial<Internship>): Internship | null {
+export function updateLocalInternship(id: number | string, updates: Partial<Internship>): Internship | null {
   const current = getLocalInternships();
-  const index = current.findIndex((i) => i.id === id);
-  if (index === -1) return null;
+  const numericId = Number(id);
+  const index = current.findIndex((i) => Number(i.id) === numericId);
+  if (index === -1) {
+    // If not found, create or upsert so edits are not lost
+    const newEntry: Internship = {
+      id: numericId,
+      title: updates.title || "Internship Role",
+      school_code: updates.school_code || "A",
+      school_name: updates.school_name || "Technology & Digital Innovation",
+      duration_model: updates.duration_model || "Model B - Standard",
+      duration_hours_months: updates.duration_hours_months || "120 hrs",
+      target_audience: updates.target_audience || null,
+      project_focus: updates.project_focus || null,
+      location: updates.location || "Remote",
+      workplace_type: updates.workplace_type || "Remote",
+      internship_type: updates.internship_type || "Full-time",
+      stipend: updates.stipend || "Unpaid",
+      openings: updates.openings || 1,
+      description: updates.description || "",
+      requirements: updates.requirements || null,
+      responsibilities: updates.responsibilities || null,
+      skills: updates.skills || [],
+      deadline: updates.deadline || null,
+      status: updates.status || "active",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...updates,
+    };
+    current.unshift(newEntry);
+    saveLocalInternships(current);
+    return newEntry;
+  }
+
   current[index] = {
     ...current[index],
     ...updates,
-    id,
+    id: Number(current[index].id),
     updated_at: new Date().toISOString(),
   };
   saveLocalInternships(current);
   return current[index];
 }
 
-export function deleteLocalInternship(id: number): boolean {
+export function deleteLocalInternship(id: number | string): boolean {
   const current = getLocalInternships();
-  const filtered = current.filter((i) => i.id !== id);
+  const numericId = Number(id);
+  const filtered = current.filter((i) => Number(i.id) !== numericId);
   if (filtered.length === current.length) return false;
   saveLocalInternships(filtered);
   return true;

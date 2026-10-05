@@ -238,7 +238,7 @@ export default function AdminDashboardPage() {
 alter table public.internship_applications enable row level security;
 create policy "Allow all operations for applications" on public.internship_applications for all using (true) with check (true);`;
 
-  const internshipTableSql = `create table public.internships (
+  const internshipTableSql = `create table if not exists public.internships (
   id bigint generated always as identity not null,
   title text not null,
   school_code text not null,
@@ -264,8 +264,117 @@ create policy "Allow all operations for applications" on public.internship_appli
   constraint internships_pkey primary key (id)
 ) TABLESPACE pg_default;
 
+-- Enable RLS and grant full permissions for operations
 alter table public.internships enable row level security;
-create policy "Allow all operations for internships" on public.internships for all using (true) with check (true);`;
+drop policy if exists "Allow all operations for internships" on public.internships;
+create policy "Allow all operations for internships" on public.internships for all using (true) with check (true);
+
+-- Seed Initial Default Roles (Run if table is newly created or empty)
+insert into public.internships (
+  title, school_code, school_name, duration_model, duration_hours_months,
+  target_audience, project_focus, location, workplace_type, internship_type,
+  stipend, openings, description, requirements, responsibilities, skills, deadline, status
+) values
+(
+  'AI & Machine Learning Research Intern',
+  'B',
+  'AI, Data Science & Analytics',
+  'Model B - Standard',
+  '120 hrs',
+  'UG / PG Engineering, Data Science & BCA students',
+  'Predictive modeling, NLP pipelines, data analytics dashboards',
+  'Remote / Hybrid',
+  'Remote',
+  'Full-time',
+  'Performance-based / Certificate + Recommendation',
+  3,
+  'Join our high-impact AI & Data Science School to build state-of-the-art predictive tools and data insights for social sector interventions.',
+  'Proficiency in Python, pandas, scikit-learn or PyTorch. Familiarity with SQL.',
+  'Data wrangling and exploratory analysis; training baseline ML models.',
+  ARRAY['Python', 'Machine Learning', 'Data Analysis', 'SQL', 'Pandas'],
+  '2026-11-30',
+  'active'
+),
+(
+  'Full-Stack Web Development Intern',
+  'A',
+  'Technology & Digital Innovation',
+  'Model C - Professional',
+  '240 hrs',
+  'B.Tech/BCA/MCA Computer Science students',
+  'Next.js portal development, RESTful APIs, cloud integrations',
+  'Remote',
+  'Remote',
+  'Full-time',
+  'Performance-based',
+  4,
+  'Work alongside our product engineering team to build modern web interfaces, robust backend APIs, and database schemas.',
+  'Strong grasp of TypeScript, React, Next.js, and modern CSS/Tailwind.',
+  'Build dynamic UI components; integrate Supabase/PostgreSQL APIs.',
+  ARRAY['React', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Node.js', 'PostgreSQL'],
+  '2026-12-15',
+  'active'
+),
+(
+  'UI/UX & Product Design Fellow',
+  'D',
+  'UI/UX & Design',
+  'Model B - Standard',
+  '120 hrs',
+  'Design students, B.Des, Human-Computer Interaction',
+  'User journey mapping, high-fidelity Figma prototypes, design systems',
+  'Remote',
+  'Remote',
+  'Part-time',
+  'Certificate + Stipend on milestones',
+  2,
+  'Craft visually stunning, accessible user interfaces for our non-profit digital platforms.',
+  'Demonstrated portfolio in Figma. Solid understanding of visual hierarchy.',
+  'Develop user stories and wireframes; design micro-interactions.',
+  ARRAY['Figma', 'UI/UX Design', 'Wireframing', 'Prototyping', 'Design Systems'],
+  '2026-11-20',
+  'active'
+),
+(
+  'Digital Marketing & Growth Associate',
+  'J',
+  'Digital Marketing & Growth',
+  'Model A - Foundation',
+  '40–80 hrs',
+  'BBA/B.Com, Mass Communication & Marketing students',
+  'Social campaigns, SEO optimization, analytics & content outreach',
+  'Hybrid',
+  'Hybrid',
+  'Part-time',
+  'Performance bonus + Certificate',
+  3,
+  'Drive awareness and outreach for MBT initiatives across digital channels.',
+  'Excellent communication skills; creative mindset; experience with social media.',
+  'Plan and execute content calendars; track engagement metrics.',
+  ARRAY['Digital Marketing', 'Content Strategy', 'SEO', 'Social Media', 'Canva'],
+  '2026-10-31',
+  'active'
+),
+(
+  'Community Outreach & Youth Development Intern',
+  'H',
+  'Education & Youth Development',
+  'Model D - Advanced',
+  '3–6 months',
+  'Social Work, Psychology, Education, and Humanities graduates',
+  'Field workshops, leadership camps, mentorship coordination',
+  'Kochi, Kerala / Onsite',
+  'Onsite',
+  'Full-time',
+  'Travel allowance + Stipend',
+  5,
+  'Engage directly with schools and colleges to conduct youth empowerment workshops.',
+  'Passionate about youth leadership and social impact.',
+  'Facilitate classroom sessions; coordinate with partner educational institutions.',
+  ARRAY['Community Engagement', 'Public Speaking', 'Event Management', 'Mentorship'],
+  '2026-12-01',
+  'active'
+);`;
 
   const schoolsTableSql = `create table public.programme_schools (
   id bigint generated always as identity not null,

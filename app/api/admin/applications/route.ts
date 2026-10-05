@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET() {
   try {
@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: applications, error } = await supabase
+    const { data: applications, error } = await supabaseAdmin
       .from("internship_applications")
       .select("*")
       .order("created_at", { ascending: false });
@@ -60,7 +60,7 @@ export async function PUT(request: Request) {
     if (status !== undefined) updates.status = status;
     if (notes !== undefined) updates.notes = notes;
 
-    const { data: updatedApp, error } = await supabase
+    const { data: updatedApp, error } = await supabaseAdmin
       .from("internship_applications")
       .update(updates)
       .eq("id", id)
@@ -100,7 +100,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Application ID is required." }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from("internship_applications")
       .delete()
       .eq("id", id);

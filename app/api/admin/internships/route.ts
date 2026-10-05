@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
-import { supabase, MBT_SCHOOLS, MBT_DURATION_MODELS } from "@/lib/supabase";
+import { supabaseAdmin, MBT_SCHOOLS, MBT_DURATION_MODELS } from "@/lib/supabase";
 import {
   getLocalInternships,
   addLocalInternship,
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const onlyActive = searchParams.get("active") === "true" || !session;
 
     // Try Supabase first
-    let query = supabase.from("internships").select("*").order("created_at", { ascending: false });
+    let query = supabaseAdmin.from("internships").select("*").order("created_at", { ascending: false });
     if (onlyActive) {
       query = query.eq("status", "active");
     }
@@ -138,37 +138,30 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: newInternship, error } = await supabase
+    const { data: newInternship, error } = await supabaseAdmin
       .from("internships")
       .insert([payload])
       .select("*")
       .single();
 
     if (error) {
-      if (
+      console.warn("Supabase insert internship error, using fallback store:", error);
+      const localSaved = addLocalInternship(payload);
+      const isTableMissing =
         error.code === "PGRST205" ||
         error.code === "42P01" ||
-        error.message?.includes("does not exist")
-      ) {
-        const localSaved = addLocalInternship(payload);
-        return NextResponse.json({
-          success: true,
-          message: "Internship created successfully (saved to local fallback store).",
-          internship: localSaved,
-          tableNotCreated: true,
-        });
-      }
-
-      console.error("Supabase insert internship error:", error);
-      const localSaved = addLocalInternship(payload);
+        error.message?.includes("does not exist");
       return NextResponse.json({
         success: true,
-        message: "Internship created in fallback store.",
+        message: isTableMissing
+          ? "Internship created in fallback store (Supabase table not found)."
+          : "Internship created in fallback store.",
         internship: localSaved,
-        tableNotCreated: true,
+        tableNotCreated: isTableMissing,
       });
     }
 
+    addLocalInternship(payload);
     return NextResponse.json({
       success: true,
       message: "Internship created successfully!",
@@ -191,9 +184,11 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, ...fields } = body;
 
-    if (!id) {
+    if (!id && id !== 0) {
       return NextResponse.json({ error: "Internship ID is required." }, { status: 400 });
     }
+
+    const numericId = Number(id);
 
     const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
@@ -225,37 +220,70 @@ export async function PUT(request: Request) {
         : [];
     }
 
-    const { data: updatedInternship, error } = await supabase
+    // Try Supabase update
+    const { data: updatedInternship, error } = await supabaseAdmin
       .from("internships")
       .update(updates)
-      .eq("id", id)
+      .eq("id", numericId)
       .select("*")
       .single();
 
     if (error) {
-      if (
-        error.code === "PGRST205" ||
-        error.code === "42P01" ||
-        error.message?.includes("does not exist")
-      ) {
-        const localUpdated = updateLocalInternship(Number(id), updates);
-        return NextResponse.json({
-          success: true,
-          message: "Internship updated successfully (saved locally).",
-          internship: localUpdated,
-          tableNotCreated: true,
-        });
+      // If row not found in Supabase (PGRST116), try inserting into Supabase
+      if (error.code === "PGRST116") {
+        const fullPayload = {
+          ...updates,
+          title: updates.title || "Internship Opening",
+          school_code: updates.school_code || "A",
+          school_name: updates.school_name || "Technology & Digital Innovation",
+          duration_model: updates.duration_model || "Model B - Standard",
+          duration_hours_months: updates.duration_hours_months || "120 hrs",
+          description: updates.description || "Description",
+          location: updates.location || "Remote",
+          workplace_type: updates.workplace_type || "Remote",
+          internship_type: updates.internship_type || "Full-time",
+          stipend: updates.stipend || "Unpaid",
+          openings: updates.openings || 1,
+          status: updates.status || "active",
+          created_by: session.id,
+          created_at: new Date().toISOString(),
+        };
+
+        const { data: inserted, error: insertError } = await supabaseAdmin
+          .from("internships")
+          .insert([fullPayload])
+          .select("*")
+          .single();
+
+        if (!insertError && inserted) {
+          updateLocalInternship(numericId, updates);
+          return NextResponse.json({
+            success: true,
+            message: "Internship updated and saved to database!",
+            internship: inserted,
+            tableNotCreated: false,
+          });
+        }
       }
 
-      console.error("Supabase update internship error:", error);
-      const localUpdated = updateLocalInternship(Number(id), updates);
+      const isTableMissing =
+        error.code === "PGRST205" ||
+        error.code === "42P01" ||
+        error.message?.includes("does not exist");
+
+      console.warn("Supabase update internship error, saving to local store:", error);
+      const localUpdated = updateLocalInternship(numericId, updates);
       return NextResponse.json({
         success: true,
-        message: "Internship updated in fallback store.",
+        message: isTableMissing
+          ? "Internship updated in fallback store (Supabase table not found)."
+          : "Internship updated in fallback store.",
         internship: localUpdated,
-        tableNotCreated: true,
+        tableNotCreated: isTableMissing,
       });
     }
+
+    updateLocalInternship(numericId, updates);
 
     return NextResponse.json({
       success: true,
@@ -279,33 +307,16 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
-    if (!id) {
+    if (!id && id !== "0") {
       return NextResponse.json({ error: "Internship ID is required." }, { status: 400 });
     }
 
     const numericId = Number(id);
 
-    const { error } = await supabase.from("internships").delete().eq("id", numericId);
+    const { error } = await supabaseAdmin.from("internships").delete().eq("id", numericId);
 
     if (error) {
-      if (
-        error.code === "PGRST205" ||
-        error.code === "42P01" ||
-        error.message?.includes("does not exist")
-      ) {
-        deleteLocalInternship(numericId);
-        return NextResponse.json({
-          success: true,
-          message: "Internship deleted successfully from local store.",
-        });
-      }
-
-      console.error("Supabase delete internship error:", error);
-      deleteLocalInternship(numericId);
-      return NextResponse.json({
-        success: true,
-        message: "Internship deleted from fallback store.",
-      });
+      console.warn("Supabase delete internship error, removing locally:", error);
     }
 
     deleteLocalInternship(numericId);
