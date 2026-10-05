@@ -141,11 +141,7 @@ export default function HomePage() {
       <header className="border-b border-slate-200/80 bg-white/85 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-[1px] flex items-center justify-center shadow-md shadow-emerald-500/10">
-              <div className="w-full h-full bg-white rounded-xl flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              </div>
-            </div>
+            <img src="/mbt.svg" alt="Mission Better Tomorrow" className="h-10 w-auto object-contain" />
             <div>
               <span className="font-bold text-slate-900 tracking-tight text-base sm:text-lg block leading-none">
                 MBT Internship Portal
@@ -771,9 +767,7 @@ export default function HomePage() {
       <footer className="bg-white border-t border-slate-200 mt-auto py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
-              M
-            </div>
+            <img src="/mbt.svg" alt="Mission Better Tomorrow" className="h-9 w-auto object-contain" />
             <div>
               <span className="font-bold text-slate-900 block">Mission Better Tomorrow</span>
               <span className="text-[11px] text-slate-400">Youth Leadership & Academic Internship Framework</span>

@@ -99,10 +99,8 @@ export default function AdminRegisterPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Header */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-[1px] shadow-lg shadow-emerald-500/10 mb-4">
-            <div className="w-full h-full bg-white rounded-2xl flex items-center justify-center">
-              <ShieldCheck className="w-7 h-7 text-emerald-600" />
-            </div>
+          <div className="mb-4">
+            <img src="/mbt.svg" alt="Mission Better Tomorrow" className="h-12 w-auto object-contain" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Admin Registration

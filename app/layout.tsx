@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: "MBT Internship Portal",
   description:
     "Mission Better Tomorrow (MBT) Internship Portal — Empowering youth and young professionals through structured domain schools and dynamic duration models.",
+  icons: {
+    icon: "/mbt.svg",
+    shortcut: "/mbt.svg",
+    apple: "/mbt.svg",
+  },
 };
 
 export default function RootLayout({

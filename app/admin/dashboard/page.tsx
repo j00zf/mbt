@@ -1015,11 +1015,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
           {/* Brand Header */}
           <div className="h-16 px-6 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-[1px] flex items-center justify-center shadow-md shadow-emerald-500/10">
-                <div className="w-full h-full bg-white rounded-xl flex items-center justify-center">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                </div>
-              </div>
+              <img src="/mbt.svg" alt="Mission Better Tomorrow" className="h-8 w-auto object-contain" />
               <div>
                 <span className="font-bold text-slate-900 text-sm tracking-tight block">
                   MBT Internship
