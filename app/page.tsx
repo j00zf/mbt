@@ -165,7 +165,7 @@ export default function Home() {
             Sixteen Internship Schools (A through P)
           </h3>
           <div className="flex flex-wrap gap-2">
-            {MBT_SCHOOLS.map((school) => (
+            {MBT_SCHOOLS.map((school: { code: string; name: string }) => (
               <span
                 key={school.code}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700"

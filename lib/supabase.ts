@@ -23,64 +23,102 @@ export interface AdminUser {
   created_at: string;
 }
 
-// 16 MBT Programme Schools
-export const MBT_SCHOOLS = [
-  { code: "A", name: "Technology & Digital Innovation" },
-  { code: "B", name: "AI, Data Science & Analytics" },
-  { code: "C", name: "Product & Tech Ecosystem Dev." },
-  { code: "D", name: "UI/UX & Design" },
-  { code: "E", name: "Research & Impact Assessment" },
-  { code: "F", name: "Programme & Project Mgmt." },
-  { code: "G", name: "Community Development" },
-  { code: "H", name: "Education & Youth Development" },
-  { code: "I", name: "Media, Communication & Content" },
-  { code: "J", name: "Digital Marketing & Growth" },
-  { code: "K", name: "Business Dev. & Partnerships" },
-  { code: "L", name: "CSR & Fundraising" },
-  { code: "M", name: "Entrepreneurship & Innovation" },
-  { code: "N", name: "HR & Talent Management" },
-  { code: "O", name: "Finance & Administration" },
-  { code: "P", name: "Events & Operations" },
-] as const;
+export interface ProgrammeSchool {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string | null;
+}
 
-// 5 MBT Duration Models
-export const MBT_DURATION_MODELS = [
+export interface DurationModel {
+  id: number;
+  model_code: string;
+  title: string;
+  duration: string;
+  suitable_for: string;
+  focus: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string | null;
+}
+
+// 16 Default MBT Programme Schools (Fallback & Seeding)
+export const DEFAULT_MBT_SCHOOLS: Omit<ProgrammeSchool, "id">[] = [
+  { code: "A", name: "Technology & Digital Innovation", sort_order: 1, is_active: true },
+  { code: "B", name: "AI, Data Science & Analytics", sort_order: 2, is_active: true },
+  { code: "C", name: "Product & Tech Ecosystem Dev.", sort_order: 3, is_active: true },
+  { code: "D", name: "UI/UX & Design", sort_order: 4, is_active: true },
+  { code: "E", name: "Research & Impact Assessment", sort_order: 5, is_active: true },
+  { code: "F", name: "Programme & Project Mgmt.", sort_order: 6, is_active: true },
+  { code: "G", name: "Community Development", sort_order: 7, is_active: true },
+  { code: "H", name: "Education & Youth Development", sort_order: 8, is_active: true },
+  { code: "I", name: "Media, Communication & Content", sort_order: 9, is_active: true },
+  { code: "J", name: "Digital Marketing & Growth", sort_order: 10, is_active: true },
+  { code: "K", name: "Business Dev. & Partnerships", sort_order: 11, is_active: true },
+  { code: "L", name: "CSR & Fundraising", sort_order: 12, is_active: true },
+  { code: "M", name: "Entrepreneurship & Innovation", sort_order: 13, is_active: true },
+  { code: "N", name: "HR & Talent Management", sort_order: 14, is_active: true },
+  { code: "O", name: "Finance & Administration", sort_order: 15, is_active: true },
+  { code: "P", name: "Events & Operations", sort_order: 16, is_active: true },
+];
+
+// 5 Default MBT Duration Models (Fallback & Seeding)
+export const DEFAULT_DURATION_MODELS: Omit<DurationModel, "id">[] = [
   {
-    model: "Model A",
+    model_code: "Model A",
     title: "Foundation",
     duration: "40–80 hrs",
-    suitableFor: "First-year students; short academic internships; exposure programmes",
+    suitable_for: "First-year students; short academic internships; exposure programmes",
     focus: "Orientation + observation + basic contribution",
+    sort_order: 1,
+    is_active: true,
   },
   {
-    model: "Model B",
+    model_code: "Model B",
     title: "Standard",
     duration: "120 hrs",
-    suitableFor: "UG students; curriculum internships",
+    suitable_for: "UG students; curriculum internships",
     focus: "Defined project + deliverables",
+    sort_order: 2,
+    is_active: true,
   },
   {
-    model: "Model C",
+    model_code: "Model C",
     title: "Professional",
     duration: "240 hrs",
-    suitableFor: "BCA/BBA/Engineering/PG; structured university internships",
+    suitable_for: "BCA/BBA/Engineering/PG; structured university internships",
     focus: "End-to-end project ownership",
+    sort_order: 3,
+    is_active: true,
   },
   {
-    model: "Model D",
+    model_code: "Model D",
     title: "Advanced",
     duration: "3–6 months",
-    suitableFor: "High-performing interns ready for scope",
+    suitable_for: "High-performing interns ready for scope",
     focus: "Cross-functional projects + leadership",
+    sort_order: 4,
+    is_active: true,
   },
   {
-    model: "Model E",
+    model_code: "Model E",
     title: "Fellowship",
     duration: "6–12 months",
-    suitableFor: "Exceptional interns",
+    suitable_for: "Exceptional interns",
     focus: "Project leadership, innovation & research",
+    sort_order: 5,
+    is_active: true,
   },
-] as const;
+];
+
+// Aliases for compatibility
+export const MBT_SCHOOLS = DEFAULT_MBT_SCHOOLS;
+export const MBT_DURATION_MODELS = DEFAULT_DURATION_MODELS;
 
 export interface Internship {
   id: number;

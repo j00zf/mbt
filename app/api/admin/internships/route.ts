@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     // Resolve School if missing
     let resolvedSchoolName = school_name;
     if (!resolvedSchoolName && school_code) {
-      const match = MBT_SCHOOLS.find((s) => s.code === school_code);
+      const match = MBT_SCHOOLS.find((s: { code: string; name: string }) => s.code === school_code);
       if (match) resolvedSchoolName = match.name;
     }
     if (!resolvedSchoolName) {
@@ -89,11 +89,12 @@ export async function POST(request: Request) {
     let resolvedFocus = project_focus;
     if (duration_model) {
       const modelMatch = MBT_DURATION_MODELS.find(
-        (m) => `${m.model} - ${m.title}` === duration_model || m.model === duration_model
+        (m: { model_code?: string; title?: string; duration?: string; suitable_for?: string; focus?: string }) =>
+          `${m.model_code} - ${m.title}` === duration_model || m.model_code === duration_model
       );
       if (modelMatch) {
         if (!resolvedDuration) resolvedDuration = modelMatch.duration;
-        if (!resolvedAudience) resolvedAudience = modelMatch.suitableFor;
+        if (!resolvedAudience) resolvedAudience = modelMatch.suitable_for;
         if (!resolvedFocus) resolvedFocus = modelMatch.focus;
       }
     }
