@@ -1,5 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 
+// Polyfill WebSocket in Node.js runtime (Node < 22) to prevent RealtimeClient crash
+if (typeof globalThis.WebSocket === "undefined") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    globalThis.WebSocket = require("ws");
+  } catch {
+    // ignore if in an environment where ws is unavailable
+  }
+}
+
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
   "https://tsytoncpwouudlrvwyew.supabase.co";
@@ -14,7 +24,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: typeof window !== "undefined",
+    autoRefreshToken: typeof window !== "undefined",
+  },
+});
 
 const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -24,7 +39,9 @@ export const supabaseAdmin = supabaseServiceKey
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
-  : supabase;
+  : createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
 export interface AdminUser {
   id: number;

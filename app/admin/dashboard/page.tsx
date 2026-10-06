@@ -503,11 +503,13 @@ create policy "Allow all operations for admins" on public.admins for all using (
   const fetchInternships = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/admin/internships");
+      const res = await fetch(`/api/admin/internships?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setInternships(data.internships || []);
-        if (data.tableNotCreated) setTableNotCreated(true);
+        setTableNotCreated(Boolean(data.tableNotCreated));
       }
     } catch (err) {
       console.error("Failed to fetch internships:", err);
@@ -729,19 +731,30 @@ create policy "Allow all operations for admins" on public.admins for all using (
 
   const handleInternshipDelete = async () => {
     if (!selectedInternship) return;
+    const deletedId = selectedInternship.id;
     setActionLoading(true);
+    // Optimistically remove from state so the item disappears immediately
+    setInternships((prev) => prev.filter((i) => i.id !== deletedId));
+    setIsDeleteModalOpen(false);
+
     try {
-      const res = await fetch(`/api/admin/internships?id=${selectedInternship.id}`, {
+      const res = await fetch(`/api/admin/internships?id=${deletedId}`, {
         method: "DELETE",
+        headers: { "Cache-Control": "no-store" },
       });
-      if (!res.ok) throw new Error("Failed to delete.");
-      setIsDeleteModalOpen(false);
-      await fetchInternships();
+      const data = await res.json();
+      if (!res.ok) {
+        await fetchInternships();
+        throw new Error(data.error || "Failed to delete internship.");
+      }
       showToast("Internship posting deleted.");
+      await fetchInternships();
     } catch (err: unknown) {
+      await fetchInternships();
       alert(err instanceof Error ? err.message : "Failed to delete.");
     } finally {
       setActionLoading(false);
+      setSelectedInternship(null);
     }
   };
 
@@ -2087,40 +2100,72 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
                       <tr>
-                        <th className="px-6 py-3.5">ID</th>
-                        <th className="px-6 py-3.5">Domain</th>
-                        <th className="px-6 py-3.5">Role Title</th>
-                        <th className="px-6 py-3.5">Duration Track</th>
-                        <th className="px-6 py-3.5">Workplace</th>
-                        <th className="px-6 py-3.5">Seats</th>
-                        <th className="px-6 py-3.5">Status</th>
-                        <th className="px-6 py-3.5 text-right">Actions</th>
+                        <th className="px-5 py-3.5">ID</th>
+                        <th className="px-5 py-3.5">Domain</th>
+                        <th className="px-5 py-3.5">Role Title</th>
+                        <th className="px-5 py-3.5">Duration Track</th>
+                        <th className="px-5 py-3.5">Workplace</th>
+                        <th className="px-5 py-3.5">Type & Stipend</th>
+                        <th className="px-5 py-3.5">Seats</th>
+                        <th className="px-5 py-3.5">Deadline</th>
+                        <th className="px-5 py-3.5">Status</th>
+                        <th className="px-5 py-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-normal">
                       {filteredInternships.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
+                          <td colSpan={10} className="px-6 py-12 text-center text-slate-400">
                             No internship postings found. Click &quot;New Internship&quot; to add one!
                           </td>
                         </tr>
                       ) : (
                         filteredInternships.map((item) => (
                           <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="px-6 py-4 font-mono text-slate-400">#{item.id}</td>
-                            <td className="px-6 py-4 font-semibold text-slate-800">
+                            <td className="px-5 py-4 font-mono text-slate-400">#{item.id}</td>
+                            <td className="px-5 py-4 font-semibold text-slate-800 max-w-[200px] truncate" title={`School ${item.school_code}: ${item.school_name}`}>
                               School {item.school_code}: {item.school_name}
                             </td>
-                            <td className="px-6 py-4 font-bold text-slate-900">{item.title}</td>
-                            <td className="px-6 py-4 text-slate-600">{item.duration_model}</td>
-                            <td className="px-6 py-4 text-slate-600">
-                              {item.workplace_type} ({item.location})
+                            <td className="px-5 py-4 font-bold text-slate-900">
+                              {item.title}
+                              {item.project_focus && (
+                                <div className="text-[11px] font-normal text-slate-400 truncate max-w-[220px]" title={item.project_focus}>
+                                  {item.project_focus}
+                                </div>
+                              )}
                             </td>
-                            <td className="px-6 py-4 font-semibold text-slate-800">{item.openings}</td>
-                            <td className="px-6 py-4 capitalize font-semibold text-emerald-700">
-                              {item.status}
+                            <td className="px-5 py-4 text-slate-600">
+                              <div className="font-medium">{item.duration_model}</div>
+                              <div className="text-[11px] text-slate-400">{item.duration_hours_months}</div>
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td className="px-5 py-4 text-slate-600">
+                              <span className="font-medium">{item.workplace_type}</span>
+                              <div className="text-[11px] text-slate-400">{item.location}</div>
+                            </td>
+                            <td className="px-5 py-4 text-slate-600">
+                              <span className="font-medium text-slate-700">{item.internship_type || "Full-time"}</span>
+                              <div className="text-[11px] text-slate-400 truncate max-w-[130px]" title={item.stipend}>
+                                {item.stipend || "Unpaid"}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 font-semibold text-slate-800">{item.openings}</td>
+                            <td className="px-5 py-4 text-slate-500 font-medium">
+                              {item.deadline ? item.deadline.substring(0, 10) : <span className="text-slate-400 italic">Open</span>}
+                            </td>
+                            <td className="px-5 py-4">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[11px] font-bold capitalize ${
+                                  item.status === "active"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : item.status === "draft"
+                                    ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                    : "bg-slate-100 text-slate-600 border border-slate-200"
+                                }`}
+                              >
+                                {item.status}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => {
@@ -2882,11 +2927,11 @@ create policy "Allow all operations for admins" on public.admins for all using (
       {/* 1. Add Internship Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Create Internship Opening</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Add an internship under one of the 16 domains & 5 duration tracks</p>
+                <p className="text-xs text-slate-400 mt-0.5">Post an opportunity aligned with the MBT 16 Domains and 5 Duration Tracks</p>
               </div>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
@@ -2902,7 +2947,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
             <form onSubmit={handleInternshipCreateSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Domain</label>
+                  <label className="block font-bold text-slate-700 mb-1">Domain / School *</label>
                   <select
                     value={internshipForm.school_code}
                     onChange={(e) => handleSchoolChange(e.target.value)}
@@ -2917,7 +2962,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Duration Track</label>
+                  <label className="block font-bold text-slate-700 mb-1">Duration Track *</label>
                   <select
                     value={internshipForm.duration_model}
                     onChange={(e) => handleModelChange(e.target.value)}
@@ -2932,19 +2977,32 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Internship Role Title</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. AI Research Intern / Product Design Fellow"
-                  value={internshipForm.title}
-                  onChange={(e) => setInternshipForm({ ...internshipForm, title: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white font-medium"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Internship Role Title *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. AI Research Intern / Product Design Fellow"
+                    value={internshipForm.title}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, title: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Open Seats (Openings)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={internshipForm.openings}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, openings: Number(e.target.value) || 1 })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Workplace</label>
                   <select
@@ -2962,6 +3020,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <label className="block font-bold text-slate-700 mb-1">Location</label>
                   <input
                     type="text"
+                    placeholder="Remote / Kochi, Kerala"
                     value={internshipForm.location}
                     onChange={(e) => setInternshipForm({ ...internshipForm, location: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
@@ -2969,37 +3028,26 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Open Seats</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={internshipForm.openings}
-                    onChange={(e) => setInternshipForm({ ...internshipForm, openings: Number(e.target.value) })}
+                  <label className="block font-bold text-slate-700 mb-1">Internship Type</label>
+                  <select
+                    value={internshipForm.internship_type}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, internship_type: e.target.value as any })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
-                  />
+                  >
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                  </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Role Description</label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Overview of the role and projects..."
-                  value={internshipForm.description}
-                  onChange={(e) => setInternshipForm({ ...internshipForm, description: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Skills (Comma-separated)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Duration Hours / Months</label>
                   <input
                     type="text"
-                    placeholder="Python, React, Design"
-                    value={internshipForm.skills}
-                    onChange={(e) => setInternshipForm({ ...internshipForm, skills: e.target.value })}
+                    placeholder="120 hrs / 3–6 months"
+                    value={internshipForm.duration_hours_months}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, duration_hours_months: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
                   />
                 </div>
@@ -3008,11 +3056,107 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <label className="block font-bold text-slate-700 mb-1">Stipend / Support</label>
                   <input
                     type="text"
-                    placeholder="Performance-based / Certificate"
+                    placeholder="Unpaid / Performance-based / ₹10,000/mo"
                     value={internshipForm.stipend}
                     onChange={(e) => setInternshipForm({ ...internshipForm, stipend: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Application Deadline</label>
+                  <input
+                    type="date"
+                    value={internshipForm.deadline}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, deadline: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Target Audience</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. UG / PG Engineering & BCA students"
+                    value={internshipForm.target_audience}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, target_audience: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Project Focus</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Predictive ML models, NLP pipelines"
+                    value={internshipForm.project_focus}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, project_focus: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Role Description *</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Overview of the role, team, and scope of work..."
+                  value={internshipForm.description}
+                  onChange={(e) => setInternshipForm({ ...internshipForm, description: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Key Responsibilities</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Deliverables, tasks, and sprint activities..."
+                    value={internshipForm.responsibilities}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, responsibilities: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Requirements & Qualifications</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Required tools, knowledge, and degree qualifications..."
+                    value={internshipForm.requirements}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, requirements: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Skills (Comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="Python, React, Machine Learning, SQL"
+                    value={internshipForm.skills}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, skills: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Status</label>
+                  <select
+                    value={internshipForm.status}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, status: e.target.value as any })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold outline-none capitalize"
+                  >
+                    <option value="active">Active (Visible & Open)</option>
+                    <option value="draft">Draft (Hidden)</option>
+                    <option value="closed">Closed</option>
+                  </select>
                 </div>
               </div>
 
@@ -3040,7 +3184,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
       {/* 2. Edit Internship Modal */}
       {isEditModalOpen && selectedInternship && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Edit Internship #{selectedInternship.id}</h3>
@@ -3060,7 +3204,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
             <form onSubmit={handleInternshipEditSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Domain</label>
+                  <label className="block font-bold text-slate-700 mb-1">Domain / School *</label>
                   <select
                     value={internshipForm.school_code}
                     onChange={(e) => handleSchoolChange(e.target.value)}
@@ -3075,7 +3219,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Duration Track</label>
+                  <label className="block font-bold text-slate-700 mb-1">Duration Track *</label>
                   <select
                     value={internshipForm.duration_model}
                     onChange={(e) => handleModelChange(e.target.value)}
@@ -3090,18 +3234,31 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Internship Role Title</label>
-                <input
-                  type="text"
-                  required
-                  value={internshipForm.title}
-                  onChange={(e) => setInternshipForm({ ...internshipForm, title: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white font-medium"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Internship Role Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={internshipForm.title}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, title: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Open Seats (Openings)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={internshipForm.openings}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, openings: Number(e.target.value) || 1 })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Workplace</label>
                   <select
@@ -3126,12 +3283,112 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Open Seats</label>
+                  <label className="block font-bold text-slate-700 mb-1">Internship Type</label>
+                  <select
+                    value={internshipForm.internship_type}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, internship_type: e.target.value as any })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  >
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Duration Hours / Months</label>
                   <input
-                    type="number"
-                    min={1}
-                    value={internshipForm.openings}
-                    onChange={(e) => setInternshipForm({ ...internshipForm, openings: Number(e.target.value) })}
+                    type="text"
+                    value={internshipForm.duration_hours_months}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, duration_hours_months: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Stipend / Support</label>
+                  <input
+                    type="text"
+                    value={internshipForm.stipend}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, stipend: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Application Deadline</label>
+                  <input
+                    type="date"
+                    value={internshipForm.deadline}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, deadline: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Target Audience</label>
+                  <input
+                    type="text"
+                    value={internshipForm.target_audience}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, target_audience: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Project Focus</label>
+                  <input
+                    type="text"
+                    value={internshipForm.project_focus}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, project_focus: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Role Description *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={internshipForm.description}
+                  onChange={(e) => setInternshipForm({ ...internshipForm, description: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Key Responsibilities</label>
+                  <textarea
+                    rows={2}
+                    value={internshipForm.responsibilities}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, responsibilities: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Requirements & Qualifications</label>
+                  <textarea
+                    rows={2}
+                    value={internshipForm.requirements}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, requirements: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Skills (Comma-separated)</label>
+                  <input
+                    type="text"
+                    value={internshipForm.skills}
+                    onChange={(e) => setInternshipForm({ ...internshipForm, skills: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
                   />
                 </div>
@@ -3147,39 +3404,6 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <option value="draft">Draft</option>
                     <option value="closed">Closed</option>
                   </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Role Description</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={internshipForm.description}
-                  onChange={(e) => setInternshipForm({ ...internshipForm, description: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 outline-none focus:border-emerald-600 focus:bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Skills (Comma-separated)</label>
-                  <input
-                    type="text"
-                    value={internshipForm.skills}
-                    onChange={(e) => setInternshipForm({ ...internshipForm, skills: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Stipend / Support</label>
-                  <input
-                    type="text"
-                    value={internshipForm.stipend}
-                    onChange={(e) => setInternshipForm({ ...internshipForm, stipend: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 outline-none"
-                  />
                 </div>
               </div>
 
@@ -3207,14 +3431,16 @@ create policy "Allow all operations for admins" on public.admins for all using (
       {/* 3. View Internship Modal */}
       {isViewModalOpen && selectedInternship && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 sm:p-8">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 max-h-[92vh] overflow-y-auto">
             <div className="flex items-start justify-between pb-3 border-b border-slate-100 mb-4">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 px-2 py-0.5 rounded">
                   School {selectedInternship.school_code}: {selectedInternship.school_name}
                 </span>
                 <h3 className="font-bold text-slate-900 text-lg mt-1">{selectedInternship.title}</h3>
-                <p className="text-xs text-slate-500">{selectedInternship.duration_model} &bull; {selectedInternship.workplace_type} ({selectedInternship.location})</p>
+                <p className="text-xs text-slate-500">
+                  {selectedInternship.duration_model} &bull; {selectedInternship.workplace_type} ({selectedInternship.location}) &bull; {selectedInternship.internship_type || "Full-time"}
+                </p>
               </div>
               <button onClick={() => setIsViewModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
@@ -3222,14 +3448,18 @@ create policy "Allow all operations for admins" on public.admins for all using (
             </div>
 
             <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold uppercase block">Openings</span>
                   <span className="font-semibold text-slate-900">{selectedInternship.openings} seats</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold uppercase block">Duration</span>
-                  <span className="font-semibold text-slate-900">{selectedInternship.duration_hours_months}</span>
+                  <span className="font-semibold text-slate-900">{selectedInternship.duration_hours_months || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Stipend</span>
+                  <span className="font-semibold text-slate-900">{selectedInternship.stipend || "Unpaid"}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 font-bold uppercase block">Status</span>
@@ -3237,10 +3467,47 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
               </div>
 
+              {(selectedInternship.target_audience || selectedInternship.project_focus || selectedInternship.deadline) && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 bg-slate-50/50 rounded-xl border border-slate-100">
+                  {selectedInternship.target_audience && (
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Target Audience</span>
+                      <span className="font-medium text-slate-800">{selectedInternship.target_audience}</span>
+                    </div>
+                  )}
+                  {selectedInternship.project_focus && (
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Project Focus</span>
+                      <span className="font-medium text-slate-800">{selectedInternship.project_focus}</span>
+                    </div>
+                  )}
+                  {selectedInternship.deadline && (
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase block">Application Deadline</span>
+                      <span className="font-semibold text-slate-900">{selectedInternship.deadline.substring(0, 10)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <h4 className="font-bold text-slate-900 text-xs mb-1">Description</h4>
                 <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedInternship.description}</p>
               </div>
+
+              {selectedInternship.responsibilities && (
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs mb-1">Key Responsibilities</h4>
+                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedInternship.responsibilities}</p>
+                </div>
+              )}
+
+              {selectedInternship.requirements && (
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs mb-1">Requirements & Qualifications</h4>
+                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedInternship.requirements}</p>
+                </div>
+              )}
 
               {selectedInternship.skills && selectedInternship.skills.length > 0 && (
                 <div>

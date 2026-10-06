@@ -301,7 +301,7 @@ export const DEFAULT_INITIAL_INTERNSHIPS: Omit<Internship, "id">[] = [
 let memoryInternships: Internship[] | null = null;
 
 export function getLocalInternships(): Internship[] {
-  if (memoryInternships && memoryInternships.length > 0) {
+  if (memoryInternships !== null) {
     return memoryInternships;
   }
 
@@ -310,7 +310,7 @@ export function getLocalInternships(): Internship[] {
     if (fs.existsSync(INTERNSHIPS_FILE)) {
       const content = fs.readFileSync(INTERNSHIPS_FILE, "utf-8");
       const parsed = JSON.parse(content);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         memoryInternships = parsed;
         return parsed;
       }
@@ -403,7 +403,6 @@ export function deleteLocalInternship(id: number | string): boolean {
   const current = getLocalInternships();
   const numericId = Number(id);
   const filtered = current.filter((i) => Number(i.id) !== numericId);
-  if (filtered.length === current.length) return false;
   saveLocalInternships(filtered);
-  return true;
+  return filtered.length !== current.length;
 }

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getLocalInternships } from "@/lib/storage";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -24,7 +27,8 @@ export async function GET(request: Request) {
 
     const { data: internships, error } = await query;
 
-    const filterLocal = () => {
+    if (error) {
+      console.warn("Public internships query error, falling back to local store:", error);
       let list = getLocalInternships().filter((i) => i.status === "active");
       if (school && school !== "all") {
         list = list.filter((i) => i.school_code === school.toUpperCase());
@@ -32,16 +36,21 @@ export async function GET(request: Request) {
       if (track && track !== "all") {
         list = list.filter((i) => i.duration_model?.toLowerCase().startsWith(track.toLowerCase()));
       }
-      return list;
-    };
-
-    if (error || !internships || internships.length === 0) {
-      return NextResponse.json({ internships: filterLocal() });
+      return NextResponse.json(
+        { internships: list },
+        { headers: { "Cache-Control": "no-store, max-age=0" } }
+      );
     }
 
-    return NextResponse.json({ internships });
+    return NextResponse.json(
+      { internships: internships || [] },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   } catch (err: unknown) {
     console.error("GET /api/internships error:", err);
-    return NextResponse.json({ internships: getLocalInternships().filter((i) => i.status === "active") });
+    return NextResponse.json(
+      { internships: getLocalInternships().filter((i) => i.status === "active") },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   }
 }

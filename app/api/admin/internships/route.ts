@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
-import { supabaseAdmin, MBT_SCHOOLS, MBT_DURATION_MODELS } from "@/lib/supabase";
+import { supabaseAdmin, MBT_SCHOOLS, type Internship } from "@/lib/supabase";
 import {
   getLocalInternships,
   addLocalInternship,
   updateLocalInternship,
   deleteLocalInternship,
 } from "@/lib/storage";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(request: Request) {
   try {
@@ -23,47 +26,38 @@ export async function GET(request: Request) {
     const { data: internships, error } = await query;
 
     if (error) {
-      if (
+      const isTableMissing =
         error.code === "PGRST205" ||
         error.code === "42P01" ||
-        error.message?.includes("does not exist")
-      ) {
-        let localList = getLocalInternships();
-        if (onlyActive) {
-          localList = localList.filter((i) => i.status === "active");
-        }
-        return NextResponse.json({
+        error.message?.includes("does not exist");
+
+      console.warn("Supabase error fetching internships, falling back to local store:", error);
+      let localList = getLocalInternships();
+      if (onlyActive) {
+        localList = localList.filter((i) => i.status === "active");
+      }
+      return NextResponse.json(
+        {
           internships: localList,
-          tableNotCreated: true,
-          message: "The internships table has not been created in Supabase yet. Using local dynamic store.",
-        });
-      }
-
-      console.error("Supabase error fetching internships:", error);
-      let localList = getLocalInternships();
-      if (onlyActive) {
-        localList = localList.filter((i) => i.status === "active");
-      }
-      return NextResponse.json({
-        internships: localList,
-        tableNotCreated: true,
-        message: error.message,
-      });
+          tableNotCreated: isTableMissing,
+          message: error.message,
+        },
+        { headers: { "Cache-Control": "no-store, max-age=0" } }
+      );
     }
 
-    if (!internships || internships.length === 0) {
-      let localList = getLocalInternships();
-      if (onlyActive) {
-        localList = localList.filter((i) => i.status === "active");
-      }
-      return NextResponse.json({ internships: localList, tableNotCreated: false });
-    }
-
-    return NextResponse.json({ internships, tableNotCreated: false });
+    // Return the actual database records (even if empty, do NOT re-seed mock data)
+    return NextResponse.json(
+      { internships: internships || [], tableNotCreated: false },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   } catch (err: unknown) {
     console.error("GET /api/admin/internships error:", err);
     const localList = getLocalInternships();
-    return NextResponse.json({ internships: localList, tableNotCreated: true });
+    return NextResponse.json(
+      { internships: localList, tableNotCreated: true },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   }
 }
 
@@ -109,10 +103,15 @@ export async function POST(request: Request) {
       "General Discipline";
 
     const skillsArray = Array.isArray(skills)
-      ? skills
+      ? skills.map((s: unknown) => String(s).trim()).filter(Boolean)
       : typeof skills === "string" && skills.trim()
       ? skills.split(",").map((s) => s.trim()).filter(Boolean)
       : [];
+
+    const formattedDeadline =
+      deadline && String(deadline).trim()
+        ? String(deadline).trim().substring(0, 10)
+        : null;
 
     const payload = {
       title: title.trim(),
@@ -122,18 +121,18 @@ export async function POST(request: Request) {
       duration_hours_months: duration_hours_months?.trim() || "120 hrs",
       target_audience: target_audience?.trim() || null,
       project_focus: project_focus?.trim() || null,
-      location: location.trim(),
-      workplace_type,
-      internship_type,
-      stipend: stipend.trim(),
+      location: location?.trim() || "Remote",
+      workplace_type: workplace_type || "Remote",
+      internship_type: internship_type || "Full-time",
+      stipend: stipend?.trim() || "Unpaid",
       openings: parseInt(String(openings), 10) || 1,
       description: description.trim(),
       requirements: requirements?.trim() || null,
       responsibilities: responsibilities?.trim() || null,
-      skills: skillsArray,
-      deadline: deadline || null,
+      skills: skillsArray.length > 0 ? skillsArray : null,
+      deadline: formattedDeadline,
       status: status || "active",
-      created_by: session.id,
+      created_by: session.id ? Number(session.id) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -146,28 +145,34 @@ export async function POST(request: Request) {
 
     if (error) {
       console.warn("Supabase insert internship error, using fallback store:", error);
-      const localSaved = addLocalInternship(payload);
+      const localSaved = addLocalInternship(payload as Omit<Internship, "id">);
       const isTableMissing =
         error.code === "PGRST205" ||
         error.code === "42P01" ||
         error.message?.includes("does not exist");
-      return NextResponse.json({
-        success: true,
-        message: isTableMissing
-          ? "Internship created in fallback store (Supabase table not found)."
-          : "Internship created in fallback store.",
-        internship: localSaved,
-        tableNotCreated: isTableMissing,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          message: isTableMissing
+            ? "Internship created in fallback store (Supabase table not found)."
+            : "Internship created in fallback store.",
+          internship: localSaved,
+          tableNotCreated: isTableMissing,
+        },
+        { headers: { "Cache-Control": "no-store, max-age=0" } }
+      );
     }
 
-    addLocalInternship(payload);
-    return NextResponse.json({
-      success: true,
-      message: "Internship created successfully!",
-      internship: newInternship,
-      tableNotCreated: false,
-    });
+    addLocalInternship({ ...(newInternship || payload) } as Omit<Internship, "id">);
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Internship created successfully!",
+        internship: newInternship,
+        tableNotCreated: false,
+      },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -190,7 +195,7 @@ export async function PUT(request: Request) {
 
     const numericId = Number(id);
 
-    const updates: Record<string, any> = {
+    const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
@@ -201,23 +206,30 @@ export async function PUT(request: Request) {
     if (fields.duration_hours_months !== undefined) updates.duration_hours_months = fields.duration_hours_months.trim();
     if (fields.target_audience !== undefined) updates.target_audience = fields.target_audience?.trim() || null;
     if (fields.project_focus !== undefined) updates.project_focus = fields.project_focus?.trim() || null;
-    if (fields.location !== undefined) updates.location = fields.location.trim();
+    if (fields.location !== undefined) updates.location = fields.location?.trim() || "Remote";
     if (fields.workplace_type !== undefined) updates.workplace_type = fields.workplace_type;
     if (fields.internship_type !== undefined) updates.internship_type = fields.internship_type;
-    if (fields.stipend !== undefined) updates.stipend = fields.stipend.trim();
+    if (fields.stipend !== undefined) updates.stipend = fields.stipend?.trim() || "Unpaid";
     if (fields.openings !== undefined) updates.openings = parseInt(String(fields.openings), 10) || 1;
     if (fields.description !== undefined) updates.description = fields.description.trim();
     if (fields.requirements !== undefined) updates.requirements = fields.requirements?.trim() || null;
     if (fields.responsibilities !== undefined) updates.responsibilities = fields.responsibilities?.trim() || null;
-    if (fields.deadline !== undefined) updates.deadline = fields.deadline || null;
     if (fields.status !== undefined) updates.status = fields.status;
 
+    if (fields.deadline !== undefined) {
+      updates.deadline =
+        fields.deadline && String(fields.deadline).trim()
+          ? String(fields.deadline).trim().substring(0, 10)
+          : null;
+    }
+
     if (fields.skills !== undefined) {
-      updates.skills = Array.isArray(fields.skills)
-        ? fields.skills
+      const skillsArray = Array.isArray(fields.skills)
+        ? fields.skills.map((s: unknown) => String(s).trim()).filter(Boolean)
         : typeof fields.skills === "string" && fields.skills.trim()
         ? fields.skills.split(",").map((s: string) => s.trim()).filter(Boolean)
         : [];
+      updates.skills = skillsArray.length > 0 ? skillsArray : null;
     }
 
     // Try Supabase update
@@ -229,43 +241,6 @@ export async function PUT(request: Request) {
       .single();
 
     if (error) {
-      // If row not found in Supabase (PGRST116), try inserting into Supabase
-      if (error.code === "PGRST116") {
-        const fullPayload = {
-          ...updates,
-          title: updates.title || "Internship Opening",
-          school_code: updates.school_code || "A",
-          school_name: updates.school_name || "Technology & Digital Innovation",
-          duration_model: updates.duration_model || "Model B - Standard",
-          duration_hours_months: updates.duration_hours_months || "120 hrs",
-          description: updates.description || "Description",
-          location: updates.location || "Remote",
-          workplace_type: updates.workplace_type || "Remote",
-          internship_type: updates.internship_type || "Full-time",
-          stipend: updates.stipend || "Unpaid",
-          openings: updates.openings || 1,
-          status: updates.status || "active",
-          created_by: session.id,
-          created_at: new Date().toISOString(),
-        };
-
-        const { data: inserted, error: insertError } = await supabaseAdmin
-          .from("internships")
-          .insert([fullPayload])
-          .select("*")
-          .single();
-
-        if (!insertError && inserted) {
-          updateLocalInternship(numericId, updates);
-          return NextResponse.json({
-            success: true,
-            message: "Internship updated and saved to database!",
-            internship: inserted,
-            tableNotCreated: false,
-          });
-        }
-      }
-
       const isTableMissing =
         error.code === "PGRST205" ||
         error.code === "42P01" ||
@@ -273,24 +248,30 @@ export async function PUT(request: Request) {
 
       console.warn("Supabase update internship error, saving to local store:", error);
       const localUpdated = updateLocalInternship(numericId, updates);
-      return NextResponse.json({
-        success: true,
-        message: isTableMissing
-          ? "Internship updated in fallback store (Supabase table not found)."
-          : "Internship updated in fallback store.",
-        internship: localUpdated,
-        tableNotCreated: isTableMissing,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          message: isTableMissing
+            ? "Internship updated in fallback store (Supabase table not found)."
+            : "Internship updated in fallback store.",
+          internship: localUpdated,
+          tableNotCreated: isTableMissing,
+        },
+        { headers: { "Cache-Control": "no-store, max-age=0" } }
+      );
     }
 
     updateLocalInternship(numericId, updates);
 
-    return NextResponse.json({
-      success: true,
-      message: "Internship updated successfully!",
-      internship: updatedInternship,
-      tableNotCreated: false,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Internship updated successfully!",
+        internship: updatedInternship,
+        tableNotCreated: false,
+      },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -316,15 +297,18 @@ export async function DELETE(request: Request) {
     const { error } = await supabaseAdmin.from("internships").delete().eq("id", numericId);
 
     if (error) {
-      console.warn("Supabase delete internship error, removing locally:", error);
+      console.warn("Supabase delete internship error:", error);
     }
 
     deleteLocalInternship(numericId);
 
-    return NextResponse.json({
-      success: true,
-      message: "Internship deleted successfully!",
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Internship deleted successfully!",
+      },
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
