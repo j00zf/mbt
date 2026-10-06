@@ -335,7 +335,7 @@ export default function StudentApplyPage() {
                 MBT Internship & Young Professional Programme
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
-                Apply for MBT Internship
+                Apply for Internship @ MBT
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 Join Mission Better Tomorrow (MBT). Choose from our open positions across 16 specialized Domains. Each role has a designated Domain and fixed Duration framework.
@@ -555,7 +555,7 @@ export default function StudentApplyPage() {
                       ) : (
                         openPositions.map((pos) => (
                           <option key={pos.id} value={pos.id}>
-                            {pos.title} — Domain {pos.school_code} ({pos.duration_model || pos.duration_hours_months}) [{pos.openings} {pos.openings === 1 ? "seat" : "seats"}]
+                            {pos.title} 
                           </option>
                         ))
                       )}

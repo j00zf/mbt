@@ -156,9 +156,9 @@ export default function HomePage() {
 
           <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-600">
             <a href="#openings" className="hover:text-emerald-700 transition-colors">
-              Browse Openings ({internships.length})
+              All Openings ({internships.length})
             </a>
-            <a href="#schools" className="hover:text-emerald-700 transition-colors">
+            <a href="#domains" className="hover:text-emerald-700 transition-colors">
               Domains
             </a>
             <a href="#tracks" className="hover:text-emerald-700 transition-colors">
@@ -463,7 +463,7 @@ export default function HomePage() {
       {/* =========================================================================
           SECTION: 16 SCHOOLS DISCIPLINE ARCHITECTURE
       ========================================================================= */}
-      <section id="schools" className="bg-white border-y border-slate-200/80 py-16">
+      <section id="domains" className="bg-white border-y border-slate-200/80 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="text-center max-w-3xl mx-auto space-y-2">
             
