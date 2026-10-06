@@ -2189,7 +2189,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                       <option value="all">All Domains ({schools.length})</option>
                       {schools.map((s) => (
                         <option key={s.id} value={s.code}>
-                          School {s.code}: {s.name}
+                          Domain{s.code}: {s.name}
                         </option>
                       ))}
                     </select>
@@ -2271,7 +2271,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
 
                             <td className="px-6 py-4">
                               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 text-[11px] font-bold">
-                                <span>School {app.school_code}: {app.school_name}</span>
+                                <span>Domain {app.school_code}: {app.school_name}</span>
                               </div>
                               <div className="text-[11px] text-slate-500 mt-1 font-medium flex items-center gap-1">
                                 <Clock className="w-3 h-3 text-slate-400" />
@@ -2473,7 +2473,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                       <option value="all">All Domains ({schools.length})</option>
                       {schools.map((s) => (
                         <option key={s.id} value={s.code}>
-                          School {s.code}: {s.name}
+                          Domain {s.code}: {s.name}
                         </option>
                       ))}
                     </select>
@@ -2553,7 +2553,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
 
                             <td className="px-6 py-4">
                               <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 text-[11px] font-bold">
-                                <span>School {app.school_code}: {app.school_name}</span>
+                                <span>Domain {app.school_code}: {app.school_name}</span>
                               </div>
                               <div className="text-[11px] text-slate-500 mt-1 font-medium flex items-center gap-1">
                                 <Clock className="w-3 h-3 text-slate-400" />
@@ -2718,7 +2718,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <span className="text-2xl font-bold text-white mt-1 block">
                       {new Set(selectedList.map((i) => i.school_code)).size} Domains
                     </span>
-                    <span className="text-[11px] text-emerald-300/70">Across 16 MBT Schools</span>
+
                   </div>
 
                   <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
