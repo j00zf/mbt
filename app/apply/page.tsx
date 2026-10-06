@@ -221,7 +221,7 @@ export default function StudentApplyPage() {
               <span className="font-bold text-slate-900 tracking-tight text-sm block leading-none">
                 MBT Internship Portal
               </span>
-              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block mt-1">
+              <span className="text-[10px] text-slate-400 font-semibold  tracking-wider block mt-1">
                 Mission Better Tomorrow
               </span>
             </div>
@@ -250,7 +250,7 @@ export default function StudentApplyPage() {
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+            <span className="text-[11px] font-bold  tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
               Registration Received
             </span>
 
@@ -264,7 +264,7 @@ export default function StudentApplyPage() {
 
             <div className="my-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-left text-xs space-y-2">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <span className="text-slate-500 font-semibold uppercase text-[10px]">Reference Number</span>
+                <span className="text-slate-500 font-semibold  text-[10px]">Reference Number</span>
                 <span className="font-mono font-bold text-slate-900 text-sm">#MBT-APP-{submittedAppId}</span>
               </div>
               {targetRoleTitle && (
@@ -361,7 +361,7 @@ export default function StudentApplyPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                      <span className="text-[10px]  font-bold tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
                         Selected Role
                       </span>
                       <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
@@ -395,7 +395,7 @@ export default function StudentApplyPage() {
               {/* Section 1: Candidate Details */}
               <div className="space-y-4">
                 <div className="pb-3 border-b border-slate-100">
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900  tracking-wider flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">1</span>
                     Applicant Information
                   </h2>
@@ -404,7 +404,7 @@ export default function StudentApplyPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                       Full Name *
                     </label>
                     <input
@@ -418,7 +418,7 @@ export default function StudentApplyPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                       Email Address *
                     </label>
                     <input
@@ -432,7 +432,7 @@ export default function StudentApplyPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                       Phone / WhatsApp Number *
                     </label>
                     <input
@@ -450,7 +450,7 @@ export default function StudentApplyPage() {
               {/* Section 2: Education */}
               <div className="space-y-4">
                 <div className="pb-3 border-b border-slate-100">
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900  tracking-wider flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">2</span>
                     Academic Background
                   </h2>
@@ -459,7 +459,7 @@ export default function StudentApplyPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                       College / Institution *
                     </label>
                     <input
@@ -473,7 +473,7 @@ export default function StudentApplyPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                       Degree / Major *
                     </label>
                     <input
@@ -487,7 +487,7 @@ export default function StudentApplyPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                       Current Year of Study *
                     </label>
                     <select
@@ -511,7 +511,7 @@ export default function StudentApplyPage() {
               <div className="space-y-4">
                 <div className="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-slate-900  tracking-wider flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">3</span>
                       Open Position Selection
                     </h2>
@@ -523,13 +523,13 @@ export default function StudentApplyPage() {
 
                 {/* 1. Open Position Selector */}
                 <div>
-                  <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between text-xs">
+                  <label className="block font-semibold text-slate-700  tracking-wider mb-1.5 flex items-center justify-between text-xs">
                     <span className="flex items-center gap-1.5">
                       <Briefcase className="w-4 h-4 text-emerald-600" />
                       Select Open Position ({openPositions.length} active roles) *
                     </span>
                     {isLockedFromOrigin && (
-                      <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider flex items-center gap-1">
+                      <span className="text-[10px] text-emerald-700 font-bold  tracking-wider flex items-center gap-1">
                         <Lock className="w-3 h-3" />
                         Locked from opening link
                       </span>
@@ -539,7 +539,7 @@ export default function StudentApplyPage() {
                   {isLockedFromOrigin ? (
                     <div className="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold flex items-center justify-between cursor-not-allowed">
                       <span className="truncate">{targetRoleTitle || "Selected Internship Role"}</span>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-200/80 px-2 py-0.5 rounded shrink-0 ml-2">
+                      <span className="text-[10px]  font-bold text-slate-400 bg-slate-200/80 px-2 py-0.5 rounded shrink-0 ml-2">
                         Locked
                       </span>
                     </div>
@@ -571,7 +571,7 @@ export default function StudentApplyPage() {
                             <GraduationCap className="w-4 h-4" />
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">
+                            <span className="text-[10px] font-bold  tracking-wider text-emerald-800 block">
                               Assigned Domain
                             </span>
                             <span className="font-bold text-slate-900 text-xs block mt-0.5">
@@ -588,7 +588,7 @@ export default function StudentApplyPage() {
                             <Clock className="w-4 h-4" />
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 block">
+                            <span className="text-[10px] font-bold  tracking-wider text-teal-800 block">
                               Internship Duration
                             </span>
                             <span className="font-bold text-slate-900 text-xs block mt-0.5">
@@ -608,7 +608,7 @@ export default function StudentApplyPage() {
               {/* Section 4: Profile & Motivation */}
               <div className="space-y-4">
                 <div className="pb-3 border-b border-slate-100">
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900  tracking-wider flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">4</span>
                     Profile Links & Statement of Purpose
                   </h2>
@@ -617,7 +617,7 @@ export default function StudentApplyPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                       Resume / Portfolio Link (Google Drive / GitHub)
                     </label>
                     <input
@@ -630,7 +630,7 @@ export default function StudentApplyPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                       LinkedIn Profile URL
                     </label>
                     <input
@@ -644,7 +644,7 @@ export default function StudentApplyPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
                     Why do you want to join MBT? (Statement of Purpose)
                   </label>
                   <textarea

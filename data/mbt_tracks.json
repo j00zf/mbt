@@ -1,0 +1,62 @@
+[
+  {
+    "model_code": "Model A",
+    "title": "Foundation",
+    "duration": "40–80 hrs",
+    "suitable_for": "First-year students; short academic internships; exposure programmes",
+    "focus": "Orientation + observation + basic contribution",
+    "sort_order": 1,
+    "is_active": true,
+    "id": 1,
+    "created_at": "2026-10-06T13:10:10.601Z",
+    "updated_at": "2026-10-06T13:10:10.601Z"
+  },
+  {
+    "model_code": "Model B",
+    "title": "Standard",
+    "duration": "120 hrs",
+    "suitable_for": "UG students; curriculum internships",
+    "focus": "Defined project + deliverables",
+    "sort_order": 2,
+    "is_active": true,
+    "id": 2,
+    "created_at": "2026-10-06T13:10:10.601Z",
+    "updated_at": "2026-10-06T13:10:10.601Z"
+  },
+  {
+    "model_code": "Model C",
+    "title": "Professional",
+    "duration": "240 hrs",
+    "suitable_for": "BCA/BBA/Engineering/PG; structured university internships",
+    "focus": "End-to-end project ownership",
+    "sort_order": 3,
+    "is_active": true,
+    "id": 3,
+    "created_at": "2026-10-06T13:10:10.601Z",
+    "updated_at": "2026-10-06T13:10:10.601Z"
+  },
+  {
+    "model_code": "Model D",
+    "title": "Advanced",
+    "duration": "3–6 months",
+    "suitable_for": "High-performing interns ready for scope",
+    "focus": "Cross-functional projects + leadership",
+    "sort_order": 4,
+    "is_active": true,
+    "id": 4,
+    "created_at": "2026-10-06T13:10:10.601Z",
+    "updated_at": "2026-10-06T13:10:10.601Z"
+  },
+  {
+    "model_code": "Model E",
+    "title": "Fellowship",
+    "duration": "6–12 months",
+    "suitable_for": "Exceptional interns",
+    "focus": "Project leadership, innovation & research",
+    "sort_order": 5,
+    "is_active": true,
+    "id": 5,
+    "created_at": "2026-10-06T13:10:10.601Z",
+    "updated_at": "2026-10-06T13:10:10.601Z"
+  }
+]

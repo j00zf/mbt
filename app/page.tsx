@@ -146,7 +146,7 @@ export default function HomePage() {
               <span className="font-bold text-slate-900 tracking-tight text-base sm:text-lg block leading-none">
                 MBT Internship Portal
               </span>
-              <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block mt-1">
+              <span className="text-[10px] text-slate-400 font-semibold  tracking-wider block mt-1">
                 Mission Better Tomorrow
               </span>
             </div>
@@ -269,10 +269,10 @@ export default function HomePage() {
                 onChange={(e) => setSelectedSchool(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-600 rounded-2xl px-3.5 py-2.5 text-xs font-semibold text-slate-700 outline-none cursor-pointer"
               >
-                <option value="all">All Schools (16 Disciplines)</option>
+                <option value="all">All Domains</option>
                 {schools.map((s) => (
                   <option key={s.id} value={s.code}>
-                    School {s.code}: {s.name}
+                    Domain {s.code}: {s.name}
                   </option>
                 ))}
               </select>
@@ -285,7 +285,7 @@ export default function HomePage() {
                 onChange={(e) => setSelectedTrack(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-600 rounded-2xl px-3.5 py-2.5 text-xs font-semibold text-slate-700 outline-none cursor-pointer"
               >
-                <option value="all">All Duration Tracks</option>
+                <option value="all">All Duration</option>
                 {tracks.map((t) => (
                   <option key={t.id} value={t.model_code}>
                     {t.model_code} ({t.duration})
@@ -368,7 +368,7 @@ export default function HomePage() {
                     {/* Top Row: School Tag & Workplace */}
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-xl">
-                        School {item.school_code}: {item.school_name}
+                       Domain {item.school_code}: {item.school_name}
                       </span>
 
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
@@ -466,14 +466,12 @@ export default function HomePage() {
       <section id="schools" className="bg-white border-y border-slate-200/80 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="text-center max-w-3xl mx-auto space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-              Domains & Discipline Architecture
-            </span>
+            
             <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-              16 Specialized Domains (Schools Architecture)
+              Domains & Discipline
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Every intern at MBT is mapped to one of 16 structured domain schools with designated mentors, live project briefs, and performance milestones. Click any domain below to view openings in that discipline.
+              Every intern at MBT is mapped to one of 16 structured domains with designated mentors, live project briefs, and performance milestones. Click any domain below to view openings in that discipline.
             </p>
           </div>
 
@@ -516,11 +514,9 @@ export default function HomePage() {
       ========================================================================= */}
       <section id="tracks" className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="text-center max-w-3xl mx-auto space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-            Commitment Frameworks
-          </span>
+ 
           <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-            Internship Duration (5 Tracks Models)
+            Internship Duration 
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
             From short curriculum internships to intensive 1-year innovation fellowships, students can choose the model fitting their university credits and career trajectory.
@@ -574,7 +570,7 @@ export default function HomePage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg">
-                    School {activeModalInternship.school_code}: {activeModalInternship.school_name}
+                    Domain {activeModalInternship.school_code}: {activeModalInternship.school_name}
                   </span>
                   <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
                     {activeModalInternship.workplace_type}
@@ -756,9 +752,7 @@ export default function HomePage() {
             <Link href="/admin/login" className="hover:text-emerald-700 font-semibold">
               Admin Login
             </Link>
-            <Link href="/admin/register" className="hover:text-emerald-700 font-semibold">
-              Register Admin
-            </Link>
+
           </div>
 
           <div className="text-slate-400">
