@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
+import {
+  sendApplicationShortlistedEmail,
+  sendApplicationAcceptedEmail,
+} from "@/lib/mailer";
 
 export async function GET() {
   try {
@@ -75,10 +79,62 @@ export async function PUT(request: Request) {
       );
     }
 
+    // Trigger email notification if student is shortlisted or accepted/selected
+    let emailStatus: { sent: boolean; message?: string } | null = null;
+    if (updatedApp && updatedApp.email) {
+      const normalizedStatus = (status || "").toLowerCase();
+      if (normalizedStatus === "shortlisted") {
+        try {
+          const mailRes = await sendApplicationShortlistedEmail({
+            to: updatedApp.email,
+            fullName: updatedApp.full_name,
+            applicationId: updatedApp.id,
+            schoolCode: updatedApp.school_code,
+            schoolName: updatedApp.school_name,
+            durationModel: updatedApp.duration_model,
+            notes: updatedApp.notes,
+          });
+          emailStatus = {
+            sent: mailRes.success,
+            message: mailRes.success
+              ? `Notification email sent to ${updatedApp.email}`
+              : mailRes.error,
+          };
+        } catch (mailErr) {
+          console.error("Failed to send shortlist email:", mailErr);
+          emailStatus = { sent: false, message: "Email delivery failed" };
+        }
+      } else if (normalizedStatus === "accepted" || normalizedStatus === "selected") {
+        try {
+          const mailRes = await sendApplicationAcceptedEmail({
+            to: updatedApp.email,
+            fullName: updatedApp.full_name,
+            applicationId: updatedApp.id,
+            schoolCode: updatedApp.school_code,
+            schoolName: updatedApp.school_name,
+            durationModel: updatedApp.duration_model,
+            notes: updatedApp.notes,
+          });
+          emailStatus = {
+            sent: mailRes.success,
+            message: mailRes.success
+              ? `Selection offer email sent to ${updatedApp.email}`
+              : mailRes.error,
+          };
+        } catch (mailErr) {
+          console.error("Failed to send acceptance email:", mailErr);
+          emailStatus = { sent: false, message: "Email delivery failed" };
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Application status updated successfully!",
+      message: emailStatus?.sent
+        ? `Application updated to ${status} and email sent to ${updatedApp.email}!`
+        : `Application status updated to ${status}.`,
       application: updatedApp,
+      emailStatus,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";

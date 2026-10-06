@@ -173,6 +173,14 @@ export interface Internship {
   updated_at?: string | null;
 }
 
+export type ApplicationStatus =
+  | "pending"
+  | "under_review"
+  | "shortlisted"
+  | "accepted"
+  | "selected"
+  | "rejected";
+
 export interface StudentApplication {
   id: number;
   internship_id?: number | null;
@@ -188,7 +196,7 @@ export interface StudentApplication {
   resume_url?: string | null;
   linkedin_url?: string | null;
   statement_of_purpose?: string | null;
-  status: "pending" | "under_review" | "shortlisted" | "accepted" | "rejected";
+  status: ApplicationStatus;
   notes?: string | null;
   created_at?: string;
   updated_at?: string | null;

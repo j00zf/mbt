@@ -42,6 +42,10 @@ import {
   MessageSquare,
   AlertCircle,
   HelpCircle,
+  Download,
+  FileSpreadsheet,
+  Star,
+  Award,
 } from "lucide-react";
 import {
   type Internship,
@@ -110,7 +114,14 @@ export default function AdminDashboardPage() {
 
   // Navigation sidebar tab
   const [activeTab, setActiveTab] = useState<
-    "internships" | "applications" | "schools" | "tracks" | "admins" | "schema"
+    | "internships"
+    | "applications"
+    | "shortlisted"
+    | "selected"
+    | "schools"
+    | "tracks"
+    | "admins"
+    | "schema"
   >("internships");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -136,6 +147,12 @@ export default function AdminDashboardPage() {
   const [appSearchQuery, setAppSearchQuery] = useState("");
   const [appStatusFilter, setAppStatusFilter] = useState<string>("all");
   const [appSchoolFilter, setAppSchoolFilter] = useState<string>("all");
+
+  const [shortlistedSearchQuery, setShortlistedSearchQuery] = useState("");
+  const [shortlistedSchoolFilter, setShortlistedSchoolFilter] = useState<string>("all");
+
+  const [selectedSearchQuery, setSelectedSearchQuery] = useState("");
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>("all");
 
   const [schoolSearchQuery, setSchoolSearchQuery] = useState("");
   const [trackSearchQuery, setTrackSearchQuery] = useState("");
@@ -467,7 +484,16 @@ create policy "Allow all operations for admins" on public.admins for all using (
       const tabParam = params.get("tab");
       if (
         tabParam &&
-        ["internships", "applications", "schools", "tracks", "admins", "schema"].includes(tabParam)
+        [
+          "internships",
+          "applications",
+          "shortlisted",
+          "selected",
+          "schools",
+          "tracks",
+          "admins",
+          "schema",
+        ].includes(tabParam)
       ) {
         setActiveTab(tabParam as any);
       }
@@ -1036,12 +1062,14 @@ create policy "Allow all operations for admins" on public.admins for all using (
   // APPLICATIONS ACTIONS
   // ==========================================
   const handleUpdateAppStatus = async (appId: number, status: string, notes?: string) => {
+    setActionLoading(true);
     try {
       const res = await fetch("/api/admin/applications", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: appId, status, notes }),
       });
+      const data = await res.json();
       if (res.ok) {
         await fetchApplications();
         if (selectedApplication && selectedApplication.id === appId) {
@@ -1049,10 +1077,15 @@ create policy "Allow all operations for admins" on public.admins for all using (
             prev ? { ...prev, status: status as any, notes: notes || prev.notes } : null
           );
         }
-        showToast(`Application #${appId} updated to ${status}.`);
+        showToast(data.message || `Application #${appId} updated to ${status}.`);
+      } else {
+        alert(data.error || "Failed to update status.");
       }
     } catch (err) {
       console.error("Status update error:", err);
+      alert("Failed to update application status.");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -1073,6 +1106,77 @@ create policy "Allow all operations for admins" on public.admins for all using (
     } finally {
       setActionLoading(false);
     }
+  };
+
+  // Export to Excel / CSV Helper
+  const exportToExcel = (data: StudentApplication[], filenamePrefix: string) => {
+    if (!data || data.length === 0) {
+      alert("No student records available to download.");
+      return;
+    }
+
+    const headers = [
+      "Application ID",
+      "Full Name",
+      "Email",
+      "Phone",
+      "College / Institution",
+      "Degree",
+      "Year of Study",
+      "School Code",
+      "School Name",
+      "Duration Model",
+      "Decision Status",
+      "Resume URL",
+      "LinkedIn URL",
+      "Statement of Purpose",
+      "Admin Review Notes",
+      "Applied Date",
+    ];
+
+    const escapeCsv = (val: unknown) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = data.map((app) => [
+      `#APP-${app.id}`,
+      app.full_name,
+      app.email,
+      app.phone,
+      app.college,
+      app.degree,
+      app.year_of_study,
+      app.school_code,
+      app.school_name,
+      app.duration_model,
+      app.status,
+      app.resume_url || "",
+      app.linkedin_url || "",
+      app.statement_of_purpose || "",
+      app.notes || "",
+      app.created_at ? new Date(app.created_at).toLocaleString() : "",
+    ]);
+
+    const csvContent =
+      "\uFEFF" +
+      [
+        headers.map(escapeCsv).join(","),
+        ...rows.map((row) => row.map(escapeCsv).join(",")),
+      ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const dateStr = new Date().toISOString().split("T")[0];
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filenamePrefix}_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${data.length} records to Excel (${filenamePrefix}_${dateStr}.csv)`);
   };
 
   // Copy helper
@@ -1114,6 +1218,38 @@ create policy "Allow all operations for admins" on public.admins for all using (
     return matchesSearch && matchesStatus && matchesSchool;
   });
 
+  // Filtered shortlisted applications
+  const filteredShortlisted = applications
+    .filter((a) => a.status === "shortlisted")
+    .filter((app) => {
+      const q = shortlistedSearchQuery.toLowerCase();
+      const matchesSearch =
+        app.full_name.toLowerCase().includes(q) ||
+        app.email.toLowerCase().includes(q) ||
+        app.college.toLowerCase().includes(q) ||
+        app.degree.toLowerCase().includes(q) ||
+        app.phone.includes(q);
+      const matchesSchool =
+        shortlistedSchoolFilter === "all" || app.school_code === shortlistedSchoolFilter;
+      return matchesSearch && matchesSchool;
+    });
+
+  // Filtered selected / accepted interns
+  const filteredSelected = applications
+    .filter((a) => a.status === "accepted" || a.status === "selected")
+    .filter((app) => {
+      const q = selectedSearchQuery.toLowerCase();
+      const matchesSearch =
+        app.full_name.toLowerCase().includes(q) ||
+        app.email.toLowerCase().includes(q) ||
+        app.college.toLowerCase().includes(q) ||
+        app.degree.toLowerCase().includes(q) ||
+        app.phone.includes(q);
+      const matchesSchool =
+        selectedSchoolFilter === "all" || app.school_code === selectedSchoolFilter;
+      return matchesSearch && matchesSchool;
+    });
+
   // Filtered domains
   const filteredSchools = schools.filter((s) => {
     const q = schoolSearchQuery.toLowerCase();
@@ -1140,8 +1276,17 @@ create policy "Allow all operations for admins" on public.admins for all using (
   const totalOpenings = internships.reduce((sum, i) => sum + (Number(i.openings) || 0), 0);
 
   const pendingAppsCount = applications.filter((a) => a.status === "pending").length;
+  const underReviewAppsCount = applications.filter((a) => a.status === "under_review").length;
   const shortlistedAppsCount = applications.filter((a) => a.status === "shortlisted").length;
-  const acceptedAppsCount = applications.filter((a) => a.status === "accepted").length;
+  const acceptedAppsCount = applications.filter(
+    (a) => a.status === "accepted" || a.status === "selected"
+  ).length;
+  const rejectedAppsCount = applications.filter((a) => a.status === "rejected").length;
+
+  const shortlistedList = applications.filter((a) => a.status === "shortlisted");
+  const selectedList = applications.filter(
+    (a) => a.status === "accepted" || a.status === "selected"
+  );
 
   if (loading) {
     return (
@@ -1240,18 +1385,70 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <UserCheck className="w-4 h-4" />
-                    <span>Student Applicants</span>
+                    <Users className="w-4 h-4" />
+                    <span>All Applicants</span>
                   </div>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "applications"
                       ? "bg-white/20 text-white"
-                      : pendingAppsCount > 0
+                      : "bg-slate-100 text-slate-600"
+                      }`}
+                  >
+                    {applications.length}
+                  </span>
+                </button>
+
+                {/* Shortlisted Candidates */}
+                <button
+                  onClick={() => {
+                    setActiveTab("shortlisted");
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "shortlisted"
+                    ? "bg-teal-600 text-white shadow-sm shadow-teal-600/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Star className="w-4 h-4 text-amber-400" />
+                    <span>Shortlisted Students</span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "shortlisted"
+                      ? "bg-white/20 text-white"
+                      : shortlistedAppsCount > 0
+                        ? "bg-teal-100 text-teal-800 font-bold"
+                        : "bg-slate-100 text-slate-600"
+                      }`}
+                  >
+                    {shortlistedAppsCount}
+                  </span>
+                </button>
+
+                {/* Selected Interns */}
+                <button
+                  onClick={() => {
+                    setActiveTab("selected");
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "selected"
+                    ? "bg-emerald-700 text-white shadow-sm shadow-emerald-700/20"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Award className="w-4 h-4 text-emerald-300" />
+                    <span>Selected Interns</span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${activeTab === "selected"
+                      ? "bg-white/20 text-white"
+                      : acceptedAppsCount > 0
                         ? "bg-emerald-100 text-emerald-800 font-bold"
                         : "bg-slate-100 text-slate-600"
                       }`}
                   >
-                    {applications.length}
+                    {acceptedAppsCount}
                   </span>
                 </button>
               </nav>
@@ -1410,6 +1607,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
               <h1 className="text-base sm:text-lg font-bold text-slate-900 capitalize tracking-tight">
                 {activeTab === "internships" && "Internship Openings Management"}
                 {activeTab === "applications" && "Student Applicant Registration"}
+                {activeTab === "shortlisted" && "Shortlisted Student Candidates"}
+                {activeTab === "selected" && "Selected Internship Cohort"}
                 {activeTab === "schools" && "Domains (16 Schools Architecture)"}
                 {activeTab === "tracks" && "Internship Duration (5 Tracks Models)"}
                 {activeTab === "admins" && "System Administrators"}
@@ -1430,6 +1629,39 @@ create policy "Allow all operations for admins" on public.admins for all using (
               <span>Public Apply Page</span>
               <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
             </Link>
+
+            {activeTab === "applications" && (
+              <button
+                onClick={() => exportToExcel(applications, "mbt_all_student_applicants")}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer"
+                title="Download all registered student applications as Excel CSV"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export All (Excel)</span>
+              </button>
+            )}
+
+            {activeTab === "shortlisted" && (
+              <button
+                onClick={() => exportToExcel(shortlistedList, "mbt_shortlisted_students")}
+                className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-teal-600/20 flex items-center gap-1.5 cursor-pointer"
+                title="Download shortlisted student candidates as Excel CSV"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Shortlisted (Excel)</span>
+              </button>
+            )}
+
+            {activeTab === "selected" && (
+              <button
+                onClick={() => exportToExcel(selectedList, "mbt_selected_interns")}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-700/20 flex items-center gap-1.5 cursor-pointer"
+                title="Download selected and accepted interns as Excel CSV"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export Selected (Excel)</span>
+              </button>
+            )}
 
             {activeTab === "internships" && (
               <button
@@ -1844,6 +2076,84 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 </div>
               </div>
 
+              {/* Email Notification & Status Info Banner */}
+              <div className="bg-gradient-to-r from-teal-50 via-emerald-50 to-sky-50 border border-teal-200/80 rounded-2xl p-4 text-xs text-slate-700 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-teal-600/30">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 block">Automated Student Email Notifications</span>
+                    <span className="text-slate-600 text-[11px]">
+                      Selecting <strong className="text-teal-800">Shortlisted</strong> or <strong className="text-emerald-800">Accepted</strong> automatically sends an official branded email notification with next steps to the student.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Excel Download Button Group */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => exportToExcel(applications, "mbt_all_student_applicants")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-2xs hover:text-emerald-700 cursor-pointer"
+                    title="Export all applicants to Excel CSV"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Export All ({applications.length})</span>
+                  </button>
+
+                  <button
+                    onClick={() => exportToExcel(shortlistedList, "mbt_shortlisted_students")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold transition-all cursor-pointer"
+                    title="Export shortlisted applicants to Excel CSV"
+                  >
+                    <Download className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Export Shortlisted ({shortlistedAppsCount})</span>
+                  </button>
+
+                  <button
+                    onClick={() => exportToExcel(selectedList, "mbt_selected_interns")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all cursor-pointer"
+                    title="Export selected interns to Excel CSV"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Export Selected ({acceptedAppsCount})</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Status Filter Tabs */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                {[
+                  { id: "all", label: "All Applicants", count: applications.length },
+                  { id: "pending", label: "Pending", count: pendingAppsCount },
+                  { id: "under_review", label: "Under Review", count: underReviewAppsCount },
+                  { id: "shortlisted", label: "Shortlisted", count: shortlistedAppsCount },
+                  { id: "accepted", label: "Accepted / Selected", count: acceptedAppsCount },
+                  { id: "rejected", label: "Rejected", count: rejectedAppsCount },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setAppStatusFilter(tab.id)}
+                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                      appStatusFilter === tab.id
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                        appStatusFilter === tab.id
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
               {/* Table Container */}
               <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
                 {/* Search & Filters */}
@@ -2043,6 +2353,544 @@ create policy "Allow all operations for admins" on public.admins for all using (
                                     setIsAppDeleteModalOpen(true);
                                   }}
                                   title="Delete Application"
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              TAB: SHORTLISTED STUDENTS (Dedicated Section)
+          ========================================================================= */}
+          {activeTab === "shortlisted" && (
+            <div className="space-y-6">
+              {/* Header Overview & Actions */}
+              <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-emerald-950 border border-teal-800/60 rounded-3xl p-6 sm:p-8 text-white shadow-md">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-300 border border-teal-400/30 flex items-center justify-center shrink-0">
+                        <Star className="w-5 h-5 text-amber-300 fill-amber-300" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                          Shortlisted Student Candidates
+                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-400/20 text-teal-200 border border-teal-400/30">
+                            Candidate Evaluation Phase
+                          </span>
+                        </h2>
+                        <p className="text-xs text-teal-200/80 mt-0.5">
+                          Applicants selected for mentor interaction, technical evaluation, and internship offers.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <button
+                      onClick={() => exportToExcel(shortlistedList, "mbt_shortlisted_students")}
+                      className="inline-flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-md shadow-teal-500/20 cursor-pointer"
+                      title="Download Shortlisted Students as Excel CSV"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Shortlisted Excel ({shortlistedList.length})</span>
+                    </button>
+
+                    <button
+                      onClick={fetchApplications}
+                      disabled={refreshing}
+                      className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-colors cursor-pointer"
+                      title="Refresh list"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin text-teal-300" : ""}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submetrics inside card */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-teal-800/60">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold text-teal-200 uppercase tracking-wider block">
+                      Total Shortlisted
+                    </span>
+                    <span className="text-2xl font-black text-white mt-1 block">
+                      {shortlistedAppsCount} Candidates
+                    </span>
+                    <span className="text-[11px] text-teal-300/70">Ready for interview or selection</span>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold text-teal-200 uppercase tracking-wider block">
+                      Auto-Email Alert
+                    </span>
+                    <span className="text-sm font-bold text-emerald-300 mt-1 block flex items-center gap-1.5">
+                      <Check className="w-4 h-4" /> Notification Active
+                    </span>
+                    <span className="text-[11px] text-teal-300/70">Offering an intern triggers acceptance email</span>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold text-teal-200 uppercase tracking-wider block">
+                      Conversion Rate
+                    </span>
+                    <span className="text-2xl font-black text-white mt-1 block">
+                      {applications.length > 0
+                        ? `${Math.round((shortlistedAppsCount / applications.length) * 100)}%`
+                        : "0%"}
+                    </span>
+                    <span className="text-[11px] text-teal-300/70">Of total registered applicant pool</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Shortlisted Table Container */}
+              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+                {/* Search & Domain Filter Bar */}
+                <div className="p-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search shortlisted candidate by name, email, college..."
+                      value={shortlistedSearchQuery}
+                      onChange={(e) => setShortlistedSearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 hover:bg-slate-100/70 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-teal-600 transition-all"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={shortlistedSchoolFilter}
+                      onChange={(e) => setShortlistedSchoolFilter(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold cursor-pointer outline-none focus:border-teal-600"
+                    >
+                      <option value="all">All Domains ({schools.length})</option>
+                      {schools.map((s) => (
+                        <option key={s.id} value={s.code}>
+                          School {s.code}: {s.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={() => exportToExcel(filteredShortlisted, "mbt_shortlisted_students")}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold transition-all cursor-pointer"
+                      title="Export current view to Excel"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Export List</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3.5">Candidate Ref</th>
+                        <th className="px-6 py-3.5">Student Details</th>
+                        <th className="px-6 py-3.5">College & Academic Year</th>
+                        <th className="px-6 py-3.5">Domain & Track</th>
+                        <th className="px-6 py-3.5">Links</th>
+                        <th className="px-6 py-3.5 text-center">Status</th>
+                        <th className="px-6 py-3.5 text-right">Offer & Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-normal">
+                      {filteredShortlisted.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-14 text-center text-slate-400">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                              <Star className="w-8 h-8 text-slate-300" />
+                              <p className="font-semibold text-slate-700">
+                                {shortlistedList.length === 0
+                                  ? "No students are currently shortlisted."
+                                  : "No shortlisted students match your search criteria."}
+                              </p>
+                              <p className="text-xs text-slate-500 max-w-sm">
+                                Go to the <button onClick={() => setActiveTab("applications")} className="text-teal-700 font-bold underline">All Applicants</button> tab to review applications and update their status to &apos;Shortlisted&apos;.
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredShortlisted.map((app) => (
+                          <tr key={app.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="px-6 py-4 font-mono font-bold text-teal-700">
+                              #APP-{app.id}
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                                {app.full_name}
+                                <span className="w-2 h-2 rounded-full bg-teal-500" />
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5 space-y-0.5">
+                                <div className="flex items-center gap-1">
+                                  <Mail className="w-3 h-3 text-slate-400" />
+                                  <span>{app.email}</span>
+                                </div>
+                                <div className="flex items-center gap-1 font-mono">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  <span>{app.phone}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="font-semibold text-slate-800">{app.college}</div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                {app.degree} &bull; <span className="text-slate-700 font-medium">{app.year_of_study}</span>
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 text-[11px] font-bold">
+                                <span>School {app.school_code}: {app.school_name}</span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-1 font-medium flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                <span>{app.duration_model}</span>
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                {app.resume_url && (
+                                  <a
+                                    href={app.resume_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1 rounded-lg bg-slate-100 hover:bg-teal-50 text-slate-600 hover:text-teal-700 text-[11px] flex items-center gap-1 px-2 font-medium"
+                                  >
+                                    <span>Resume</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                                {app.linkedin_url && (
+                                  <a
+                                    href={app.linkedin_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1 rounded-lg bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 text-[11px] flex items-center gap-1 px-2 font-medium"
+                                  >
+                                    <span>LinkedIn</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 font-bold text-[11px] border border-teal-200">
+                                <Star className="w-3 h-3 text-teal-600 fill-teal-600" />
+                                Shortlisted
+                              </span>
+                            </td>
+
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {/* Promote to Selected (sends email!) */}
+                                <button
+                                  onClick={() => handleUpdateAppStatus(app.id, "accepted")}
+                                  disabled={actionLoading}
+                                  className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition-all shadow-xs shadow-emerald-600/20 cursor-pointer"
+                                  title="Accept and select student as intern (automatically emails offer letter)"
+                                >
+                                  <Award className="w-3.5 h-3.5" />
+                                  <span>Select as Intern</span>
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setSelectedApplication(app);
+                                    setAppNotes(app.notes || "");
+                                    setIsAppViewModalOpen(true);
+                                  }}
+                                  title="View Applicant Profile"
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  onClick={() => handleUpdateAppStatus(app.id, "under_review")}
+                                  disabled={actionLoading}
+                                  title="Move back to Under Review"
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                                >
+                                  <Clock className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              TAB: SELECTED INTERNS (Dedicated Section)
+          ========================================================================= */}
+          {activeTab === "selected" && (
+            <div className="space-y-6">
+              {/* Header Overview & Actions */}
+              <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border border-emerald-800/60 rounded-3xl p-6 sm:p-8 text-white shadow-md">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center justify-center shrink-0">
+                        <Award className="w-5 h-5 text-emerald-300" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                          Selected Internship Cohort
+                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
+                            Official MBT Interns
+                          </span>
+                        </h2>
+                        <p className="text-xs text-emerald-200/80 mt-0.5">
+                          Students who have been officially selected and onboarded across the 16 functional domains.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <button
+                      onClick={() => exportToExcel(selectedList, "mbt_selected_interns")}
+                      className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+                      title="Download Selected Interns Roster as Excel CSV"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Selected Excel ({selectedList.length})</span>
+                    </button>
+
+                    <button
+                      onClick={fetchApplications}
+                      disabled={refreshing}
+                      className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-colors cursor-pointer"
+                      title="Refresh list"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin text-emerald-300" : ""}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submetrics inside card */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-emerald-800/60">
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
+                      Total Active Interns
+                    </span>
+                    <span className="text-2xl font-black text-white mt-1 block">
+                      {acceptedAppsCount} Interns
+                    </span>
+                    <span className="text-[11px] text-emerald-300/70">Onboarded into MBT projects</span>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
+                      Domains Represented
+                    </span>
+                    <span className="text-2xl font-black text-white mt-1 block">
+                      {new Set(selectedList.map((i) => i.school_code)).size} Domains
+                    </span>
+                    <span className="text-[11px] text-emerald-300/70">Across 16 MBT Schools</span>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                    <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
+                      Partner Colleges
+                    </span>
+                    <span className="text-2xl font-black text-white mt-1 block">
+                      {new Set(selectedList.map((i) => i.college)).size} Institutions
+                    </span>
+                    <span className="text-[11px] text-emerald-300/70">Academic representation</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Interns Table Container */}
+              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+                {/* Search & Domain Filter Bar */}
+                <div className="p-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search selected intern by name, email, college..."
+                      value={selectedSearchQuery}
+                      onChange={(e) => setSelectedSearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 hover:bg-slate-100/70 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-emerald-600 transition-all"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedSchoolFilter}
+                      onChange={(e) => setSelectedSchoolFilter(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold cursor-pointer outline-none focus:border-emerald-600"
+                    >
+                      <option value="all">All Domains ({schools.length})</option>
+                      {schools.map((s) => (
+                        <option key={s.id} value={s.code}>
+                          School {s.code}: {s.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={() => exportToExcel(filteredSelected, "mbt_selected_interns")}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all cursor-pointer"
+                      title="Export selected interns to Excel"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Export List</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50/80 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3.5">Intern ID</th>
+                        <th className="px-6 py-3.5">Intern Details</th>
+                        <th className="px-6 py-3.5">College & Degree</th>
+                        <th className="px-6 py-3.5">Assigned Domain & Track</th>
+                        <th className="px-6 py-3.5">Links</th>
+                        <th className="px-6 py-3.5 text-center">Status</th>
+                        <th className="px-6 py-3.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-normal">
+                      {filteredSelected.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-14 text-center text-slate-400">
+                            <div className="flex flex-col items-center justify-center gap-2">
+                              <Award className="w-8 h-8 text-slate-300" />
+                              <p className="font-semibold text-slate-700">
+                                {selectedList.length === 0
+                                  ? "No students have been accepted into the cohort yet."
+                                  : "No selected interns match your search criteria."}
+                              </p>
+                              <p className="text-xs text-slate-500 max-w-sm">
+                                Review candidates in the <button onClick={() => setActiveTab("shortlisted")} className="text-emerald-700 font-bold underline">Shortlisted Students</button> tab to select interns.
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredSelected.map((app) => (
+                          <tr key={app.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="px-6 py-4 font-mono font-bold text-emerald-700">
+                              #MBT-INT-{app.id}
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                                {app.full_name}
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5 space-y-0.5">
+                                <div className="flex items-center gap-1">
+                                  <Mail className="w-3 h-3 text-slate-400" />
+                                  <span>{app.email}</span>
+                                </div>
+                                <div className="flex items-center gap-1 font-mono">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  <span>{app.phone}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="font-semibold text-slate-800">{app.college}</div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                {app.degree} &bull; <span className="text-slate-700 font-medium">{app.year_of_study}</span>
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                                <span>School {app.school_code}: {app.school_name}</span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-1 font-medium flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                <span>{app.duration_model}</span>
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                {app.resume_url && (
+                                  <a
+                                    href={app.resume_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 text-[11px] flex items-center gap-1 px-2 font-medium"
+                                  >
+                                    <span>Resume</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                                {app.linkedin_url && (
+                                  <a
+                                    href={app.linkedin_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1 rounded-lg bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 text-[11px] flex items-center gap-1 px-2 font-medium"
+                                  >
+                                    <span>LinkedIn</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-bold text-[11px] border border-emerald-200">
+                                <Award className="w-3 h-3 text-emerald-600" />
+                                Onboarded Intern
+                              </span>
+                            </td>
+
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setSelectedApplication(app);
+                                    setAppNotes(app.notes || "");
+                                    setIsAppViewModalOpen(true);
+                                  }}
+                                  title="View Intern Profile"
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedApplication(app);
+                                    setIsAppDeleteModalOpen(true);
+                                  }}
+                                  title="Delete Record"
                                   className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
                                 >
                                   <Trash2 className="w-4 h-4" />
