@@ -121,7 +121,7 @@ export async function sendApplicationConfirmationEmail(params: SendApplicationEm
       : ""
     }
                 <tr>
-                  <td style="padding-top: 8px; color: #64748b;">Domain / School:</td>
+                  <td style="padding-top: 8px; color: #64748b;">Domain :</td>
                   <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">Domain ${schoolCode}: ${schoolName}</td>
                 </tr>
                 <tr>
@@ -311,30 +311,28 @@ export async function sendApplicationShortlistedEmail(params: StatusNotification
                   <td style="padding-top: 10px; color: #64748b; width: 40%;">Application Ref:</td>
                   <td style="padding-top: 10px; color: #0f172a; font-weight: 700; font-family: monospace;">#MBT-APP-${applicationId}</td>
                 </tr>
-                ${
-                  roleTitle
-                    ? `<tr>
+                ${roleTitle
+      ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Applied Role:</td>
                   <td style="padding-top: 8px; color: #0f172a; font-weight: 700;">${roleTitle}</td>
                 </tr>`
-                    : ""
-                }
+      : ""
+    }
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Domain:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">School ${schoolCode}: ${schoolName}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;"> ${schoolCode}: ${schoolName}</td>
                 </tr>
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Internship Track:</td>
                   <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">${durationModel}</td>
                 </tr>
-                ${
-                  notes
-                    ? `<tr>
+                ${notes
+      ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Reviewer Note:</td>
                   <td style="padding-top: 8px; color: #0369a1; font-weight: 500; font-style: italic;">"${notes}"</td>
                 </tr>`
-                    : ""
-                }
+      : ""
+    }
               </table>
 
               <!-- Next Steps Roadmap -->
@@ -342,7 +340,7 @@ export async function sendApplicationShortlistedEmail(params: StatusNotification
                 What happens next:
               </h3>
               <ol style="margin: 0 0 24px 0; padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.7;">
-                <li><strong>Interview / Interaction:</strong> You may receive an invitation for an online discussion with the school mentor within 2–4 business days.</li>
+                <li><strong>Interview / Interaction:</strong> You may receive an invitation for an online discussion with the Domain mentor within 2–4 business days.</li>
                 <li><strong>Verification:</strong> Please keep your resume and portfolio handy for presentation.</li>
                 <li><strong>Final Offer:</strong> Successful candidates will receive the official onboarding letter and project guidelines.</li>
               </ol>
@@ -385,7 +383,7 @@ Congratulations! You have been SHORTLISTED for the Mission Better Tomorrow (MBT)
 
 APPLICATION SUMMARY:
 - Reference Number: #MBT-APP-${applicationId}
-${roleTitle ? `- Applied Role: ${roleTitle}\n` : ""}- Domain: School ${schoolCode}: ${schoolName}
+${roleTitle ? `- Applied Role: ${roleTitle}\n` : ""}- Domain: ${schoolCode}: ${schoolName}
 - Duration: ${durationModel}
 ${notes ? `- Reviewer Note: ${notes}\n` : ""}- Status: Shortlisted
 
@@ -501,17 +499,16 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
                   <td style="padding-top: 10px; color: #64748b; width: 40%;">Intern ID / Ref:</td>
                   <td style="padding-top: 10px; color: #0f172a; font-weight: 700; font-family: monospace;">#MBT-APP-${applicationId}</td>
                 </tr>
-                ${
-                  roleTitle
-                    ? `<tr>
+                ${roleTitle
+      ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Assigned Role:</td>
                   <td style="padding-top: 8px; color: #0f172a; font-weight: 700;">${roleTitle}</td>
                 </tr>`
-                    : ""
-                }
+      : ""
+    }
                 <tr>
-                  <td style="padding-top: 8px; color: #64748b;">Domain / School:</td>
-                  <td style="padding-top: 8px; color: #059669; font-weight: 700;">School ${schoolCode}: ${schoolName}</td>
+                  <td style="padding-top: 8px; color: #64748b;">Domain:</td>
+                  <td style="padding-top: 8px; color: #059669; font-weight: 700;"> ${schoolCode}: ${schoolName}</td>
                 </tr>
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Internship Duration:</td>
@@ -521,14 +518,13 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
                   <td style="padding-top: 8px; color: #64748b;">Official Status:</td>
                   <td style="padding-top: 8px; color: #059669; font-weight: 800;">ACCEPTED / ONBOARDED</td>
                 </tr>
-                ${
-                  notes
-                    ? `<tr>
+                ${notes
+      ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Mentor Instructions:</td>
                   <td style="padding-top: 8px; color: #0f172a; font-weight: 500; font-style: italic;">"${notes}"</td>
                 </tr>`
-                    : ""
-                }
+      : ""
+    }
               </table>
 
               <!-- WhatsApp Community Joining Card -->
@@ -601,7 +597,7 @@ Congratulations and welcome! On behalf of Mission Better Tomorrow (MBT), you hav
 
 INTERNSHIP DETAILS:
 - Reference Number: #MBT-APP-${applicationId}
-${roleTitle ? `- Role: ${roleTitle}\n` : ""}- Domain: School ${schoolCode}: ${schoolName}
+${roleTitle ? `- Role: ${roleTitle}\n` : ""}- Domain:${schoolCode}: ${schoolName}
 - Duration Model: ${durationModel}
 - Status: Accepted / Selected
 ${notes ? `- Mentor Instructions: ${notes}\n` : ""}
