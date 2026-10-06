@@ -24,6 +24,7 @@ export interface AdminSession {
   id: number;
   name: string;
   email: string;
+  status?: string;
   loginTime: number;
 }
 

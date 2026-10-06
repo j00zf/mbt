@@ -24,11 +24,23 @@ export default function AdminLoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInactive, setIsInactive] = useState(false);
+  const [registeredNotice, setRegisteredNotice] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("registered") === "pending") {
+        setRegisteredNotice(true);
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsInactive(false);
 
     if (!email.trim()) {
       setError("Please enter your admin email.");
@@ -51,6 +63,9 @@ export default function AdminLoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.inactive || res.status === 403) {
+          setIsInactive(true);
+        }
         throw new Error(data.error || "Authentication failed.");
       }
 
@@ -90,12 +105,34 @@ export default function AdminLoginPage() {
 
         {/* Card Body */}
         <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xl shadow-slate-200/60">
-          {error && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-3 animate-fadeIn">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
+          {registeredNotice && !error && (
+            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3 animate-fadeIn">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
               <div>
-                <p className="font-semibold">Authentication Failed</p>
-                <p className="text-xs text-rose-700 mt-0.5">{error}</p>
+                <p className="font-bold text-amber-950 text-sm">Account Pending Activation</p>
+                <p className="mt-0.5 text-amber-800 leading-relaxed">
+                  Your registration has been created with status <strong>Inactive</strong>. Another active administrator must activate your account before you can log in.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div
+              className={`mb-6 p-4 rounded-xl border text-sm flex items-start gap-3 animate-fadeIn ${
+                isInactive
+                  ? "bg-amber-50 border-amber-200 text-amber-900"
+                  : "bg-rose-50 border-rose-200 text-rose-800"
+              }`}
+            >
+              <AlertCircle
+                className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                  isInactive ? "text-amber-600" : "text-rose-600"
+                }`}
+              />
+              <div>
+                <p className="font-semibold">{isInactive ? "Account Inactive" : "Authentication Failed"}</p>
+                <p className={`text-xs mt-0.5 ${isInactive ? "text-amber-800" : "text-rose-700"}`}>{error}</p>
               </div>
             </div>
           )}

@@ -35,6 +35,7 @@ import {
   ExternalLink,
   Code2,
   UserCheck,
+  UserX,
   FileText,
   Mail,
   Phone,
@@ -55,6 +56,7 @@ interface AdminRecord {
   id: number;
   name: string;
   email: string;
+  status?: string;
   created_at: string;
 }
 
@@ -437,17 +439,25 @@ on conflict (model_code) do nothing;
 alter table public.duration_models enable row level security;
 create policy "Allow all operations for duration_models" on public.duration_models for all using (true) with check (true);`;
 
-  const adminsTableSql = `create table public.admins (
+  const adminsTableSql = `create table if not exists public.admins (
   id bigint generated always as identity not null,
   name text not null,
   email text not null,
   password text not null,
+  status text not null default 'inactive'::text, -- 'active' or 'inactive'
   created_at timestamp with time zone null default timezone ('utc'::text, now()),
   constraint admins_pkey primary key (id),
   constraint admins_email_key unique (email)
 ) TABLESPACE pg_default;
 
+-- Migration to add status column to existing admins table:
+alter table public.admins add column if not exists status text not null default 'inactive'::text;
+
+-- Activate existing administrators:
+update public.admins set status = 'active' where status is null;
+
 alter table public.admins enable row level security;
+drop policy if exists "Allow all operations for admins" on public.admins;
 create policy "Allow all operations for admins" on public.admins for all using (true) with check (true);`;
 
   // Init Data & Check URL param for tab
@@ -556,13 +566,43 @@ create policy "Allow all operations for admins" on public.admins for all using (
 
   const fetchAdmins = async () => {
     try {
-      const res = await fetch("/api/admin/admins");
+      const res = await fetch(`/api/admin/admins?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setAdmins(data.admins || []);
       }
     } catch (err) {
       console.error("Failed to fetch admins:", err);
+    }
+  };
+
+  const handleToggleAdminStatus = async (adminId: number, currentStatus?: string) => {
+    if (adminId === currentUser?.id) {
+      alert("You cannot change your own admin status. Another active administrator must toggle it.");
+      return;
+    }
+
+    const nextStatus = (currentStatus || "active").toLowerCase() === "active" ? "inactive" : "active";
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/admins", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId, status: nextStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update admin status.");
+      }
+      showToast(data.message || `Admin status changed to ${nextStatus}.`);
+      await fetchAdmins();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update admin status.";
+      alert(msg);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -2210,40 +2250,225 @@ create policy "Allow all operations for admins" on public.admins for all using (
               TAB: ADMINS
           ========================================================================= */}
           {activeTab === "admins" && (
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs max-w-3xl">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">System Administrators</h3>
-                  <p className="text-xs text-slate-500">Authorized personnel who can manage the portal</p>
+            <div className="space-y-6 max-w-4xl">
+              {/* Security Policy Information Banner */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 border border-emerald-200/80 rounded-3xl p-5 text-xs text-slate-700 shadow-xs">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs shadow-emerald-600/30">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                      Administrator Access & Approval Protocol
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold border border-emerald-300/60">
+                        Peer Verification Active
+                      </span>
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      New administrator registrations default to <strong className="text-amber-800 font-semibold">Inactive</strong> status.
+                      Only <strong className="text-emerald-800 font-semibold">Active</strong> administrators are allowed to log in.
+                      For security, <strong className="text-slate-800 font-semibold">only another administrator</strong> can toggle the active/inactive status of an account.
+                    </p>
+                  </div>
                 </div>
-                <Link
-                  href="/admin/register"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm shadow-emerald-600/20"
-                >
-                  Register Admin
-                </Link>
               </div>
 
-              <div className="space-y-3 mt-4">
-                {admins.map((admin) => (
-                  <div
-                    key={admin.id}
-                    className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center">
-                        {admin.name?.[0]?.toUpperCase() || "A"}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900 text-sm">{admin.name}</div>
-                        <div className="text-slate-500 font-mono mt-0.5">{admin.email}</div>
-                      </div>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200">
-                      Active Admin #{admin.id}
-                    </span>
+              {/* Main Admins List Card */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                      <Users className="w-5 h-5 text-emerald-600" />
+                      System Administrators
+                      <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {admins.length} {admins.length === 1 ? "admin" : "admins"}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Manage administrator accounts and toggle portal access permissions.
+                    </p>
                   </div>
-                ))}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={fetchAdmins}
+                      disabled={actionLoading}
+                      className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 transition-colors"
+                      title="Refresh administrator list"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${actionLoading ? "animate-spin" : ""}`} />
+                    </button>
+                    <Link
+                      href="/admin/register"
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm shadow-emerald-600/20"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Register New Admin
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {admins.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-sm">
+                      No administrator accounts found.
+                    </div>
+                  ) : (
+                    admins.map((admin) => {
+                      const isSelf = currentUser?.id === admin.id;
+                      const isActive = (admin.status || "active").toLowerCase() === "active";
+
+                      return (
+                        <div
+                          key={admin.id}
+                          className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                            isActive
+                              ? "bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-xs"
+                              : "bg-amber-50/40 border-amber-200/80"
+                          }`}
+                        >
+                          {/* Admin Details */}
+                          <div className="flex items-start sm:items-center gap-3.5">
+                            <div className="relative">
+                              <div
+                                className={`w-11 h-11 rounded-2xl font-bold flex items-center justify-center text-sm shadow-xs ${
+                                  isActive
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                    : "bg-amber-100 text-amber-800 border border-amber-300"
+                                }`}
+                              >
+                                {admin.name?.[0]?.toUpperCase() || "A"}
+                              </div>
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
+                                  isActive ? "bg-emerald-500" : "bg-amber-500"
+                                }`}
+                                title={isActive ? "Status: Active" : "Status: Inactive"}
+                              />
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 text-sm">
+                                  {admin.name}
+                                </span>
+                                {isSelf && (
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                                    You (Current)
+                                  </span>
+                                )}
+                                <span className="text-[11px] font-mono text-slate-400">
+                                  ID: #{admin.id}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap font-mono">
+                                <span className="flex items-center gap-1">
+                                  <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                  {admin.email}
+                                </span>
+                                {admin.created_at && (
+                                  <span className="flex items-center gap-1 text-[11px] text-slate-400 font-sans">
+                                    <Clock className="w-3 h-3 text-slate-400" />
+                                    Joined {new Date(admin.created_at).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Status Badge & Peer Actions */}
+                          <div className="flex items-center gap-3 self-end md:self-center shrink-0">
+                            {/* Status Badge */}
+                            {isActive ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-[11px] border border-amber-300">
+                                <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                Inactive (Blocked)
+                              </span>
+                            )}
+
+                            {/* Action Button */}
+                            {isSelf ? (
+                              <span
+                                className="text-[11px] text-slate-400 italic px-2 py-1 select-none"
+                                title="Peer approval required: you cannot modify your own status"
+                              >
+                                Self-toggle locked
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleToggleAdminStatus(admin.id, admin.status)}
+                                disabled={actionLoading}
+                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                                  isActive
+                                    ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300"
+                                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shadow-emerald-600/20"
+                                }`}
+                                title={
+                                  isActive
+                                    ? "Deactivate this admin account to revoke portal login access"
+                                    : "Activate this admin account to grant portal login access"
+                                }
+                              >
+                                {isActive ? (
+                                  <>
+                                    <UserX className="w-3.5 h-3.5" />
+                                    Deactivate
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserCheck className="w-3.5 h-3.5" />
+                                    Activate Admin
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Supabase Schema Helper Card */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-white">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Database className="w-4 h-4 text-emerald-400" />
+                    <span className="font-bold text-sm text-slate-200">Supabase SQL Migration for Admins Table</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `alter table public.admins add column if not exists status text not null default 'inactive'::text;\nupdate public.admins set status = 'active' where status is null;`
+                      );
+                      setCopiedAdminSql(true);
+                      setTimeout(() => setCopiedAdminSql(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                  >
+                    {copiedAdminSql ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" /> Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" /> Copy Migration SQL
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre className="bg-slate-950 p-3.5 rounded-xl text-[11px] font-mono text-emerald-300 overflow-x-auto border border-slate-800/80 leading-relaxed">
+{`-- Add status column with default 'inactive'
+alter table public.admins add column if not exists status text not null default 'inactive'::text;
+
+-- Activate existing legacy administrators so they retain access
+update public.admins set status = 'active' where status is null;`}
+                </pre>
               </div>
             </div>
           )}

@@ -79,8 +79,8 @@ export default function AdminRegisterPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push("/admin/dashboard");
-      }, 1500);
+        router.push("/admin/login?registered=pending");
+      }, 3000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong.";
       setError(message);
@@ -124,13 +124,14 @@ export default function AdminRegisterPage() {
           )}
 
           {success && (
-            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-3 animate-fadeIn">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-600" />
+            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-start gap-3 animate-fadeIn">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
               <div>
-                <p className="font-semibold">Registration Successful!</p>
-                <p className="text-xs text-emerald-700 mt-0.5">
-                  Redirecting to Admin Dashboard...
+                <p className="font-semibold text-amber-950">Registration Submitted!</p>
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  Your admin account is created with <strong>Inactive</strong> status. Another active administrator must approve and activate your account before you can log in.
                 </p>
+                <p className="text-[11px] text-amber-700 font-medium mt-1">Redirecting to login portal...</p>
               </div>
             </div>
           )}

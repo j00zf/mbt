@@ -47,6 +47,7 @@ export interface AdminUser {
   id: number;
   name: string;
   email: string;
+  status?: "active" | "inactive" | string;
   created_at: string;
 }
 

@@ -59,45 +59,75 @@ export async function POST(request: Request) {
     // Hash the password securely
     const hashedPassword = await hashPassword(password);
 
-    // Insert new admin
-    const { data: newAdmin, error: insertError } = await supabase
+    // Insert new admin with default status 'inactive'
+    let newAdmin: { id: number; name: string; email: string; status?: string; created_at: string } | null = null;
+    const { data: insertedWithStatus, error: insertError } = await supabase
       .from("admins")
       .insert([
         {
           name: cleanName,
           email: cleanEmail,
           password: hashedPassword,
+          status: "inactive",
         },
       ])
-      .select("id, name, email, created_at")
+      .select("id, name, email, status, created_at")
       .single();
 
     if (insertError) {
-      console.error("Supabase insert error:", insertError);
-      return NextResponse.json(
-        {
-          error: insertError.message || "Failed to create admin record.",
-          details: insertError,
-        },
-        { status: 500 }
-      );
+      // If 'status' column does not exist yet in schema (PGRST204), fallback to inserting without status
+      if (insertError.code === "PGRST204" || insertError.message?.includes("status")) {
+        console.warn("Status column not found on admins table, inserting without status:", insertError.message);
+        const { data: fallbackAdmin, error: fallbackError } = await supabase
+          .from("admins")
+          .insert([
+            {
+              name: cleanName,
+              email: cleanEmail,
+              password: hashedPassword,
+            },
+          ])
+          .select("id, name, email, created_at")
+          .single();
+
+        if (fallbackError) {
+          console.error("Supabase fallback insert error:", fallbackError);
+          return NextResponse.json(
+            {
+              error: fallbackError.message || "Failed to create admin record.",
+              details: fallbackError,
+            },
+            { status: 500 }
+          );
+        }
+        newAdmin = { ...fallbackAdmin, status: "inactive" };
+      } else {
+        console.error("Supabase insert error:", insertError);
+        return NextResponse.json(
+          {
+            error: insertError.message || "Failed to create admin record.",
+            details: insertError,
+          },
+          { status: 500 }
+        );
+      }
+    } else {
+      newAdmin = insertedWithStatus;
     }
 
-    // Create session
-    await setAdminSession({
-      id: Number(newAdmin.id),
-      name: newAdmin.name,
-      email: newAdmin.email,
-      loginTime: Date.now(),
-    });
+    // Notice: We do NOT call setAdminSession here because the newly registered admin
+    // has status 'inactive' and must be approved/activated by another active admin first!
 
     return NextResponse.json({
       success: true,
-      message: "Admin registered successfully!",
+      message:
+        "Admin account created successfully! Your status is currently 'inactive' and requires approval by an active administrator before you can sign in.",
+      requiresActivation: true,
       admin: {
         id: newAdmin.id,
         name: newAdmin.name,
         email: newAdmin.email,
+        status: newAdmin.status || "inactive",
         created_at: newAdmin.created_at,
       },
     });

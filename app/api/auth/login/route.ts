@@ -17,18 +17,34 @@ export async function POST(request: Request) {
     const cleanEmail = email.toLowerCase().trim();
 
     // Query admin by email
-    const { data: admin, error } = await supabase
+    // Query admin by email (attempting to select status if column exists)
+    let admin: { id: number; name: string; email: string; password: string; status?: string; created_at: string } | null = null;
+    const { data: adminWithStatus, error: queryError } = await supabase
       .from("admins")
-      .select("id, name, email, password, created_at")
+      .select("id, name, email, password, status, created_at")
       .eq("email", cleanEmail)
       .maybeSingle();
 
-    if (error) {
-      console.error("Supabase admin lookup error:", error);
-      return NextResponse.json(
-        { error: error.message || "Database lookup failed." },
-        { status: 500 }
-      );
+    if (queryError) {
+      if (queryError.code === "PGRST204" || queryError.message?.includes("status")) {
+        // Fallback for legacy database before status column migration
+        const { data: legacyAdmin, error: legacyError } = await supabase
+          .from("admins")
+          .select("id, name, email, password, created_at")
+          .eq("email", cleanEmail)
+          .maybeSingle();
+
+        if (legacyError) {
+          console.error("Supabase admin lookup error:", legacyError);
+          return NextResponse.json({ error: legacyError.message || "Database lookup failed." }, { status: 500 });
+        }
+        admin = legacyAdmin ? { ...legacyAdmin, status: "active" } : null;
+      } else {
+        console.error("Supabase admin lookup error:", queryError);
+        return NextResponse.json({ error: queryError.message || "Database lookup failed." }, { status: 500 });
+      }
+    } else {
+      admin = adminWithStatus;
     }
 
     if (!admin) {
@@ -47,11 +63,24 @@ export async function POST(request: Request) {
       );
     }
 
+    // Verify admin status: ONLY ACTIVE ADMINS CAN LOGIN
+    const currentStatus = (admin.status || "active").toLowerCase();
+    if (currentStatus === "inactive") {
+      return NextResponse.json(
+        {
+          error: "Your admin account is currently inactive. It must be approved and activated by an existing active administrator before you can log in.",
+          inactive: true,
+        },
+        { status: 403 }
+      );
+    }
+
     // Set cookie session
     await setAdminSession({
       id: Number(admin.id),
       name: admin.name,
       email: admin.email,
+      status: currentStatus,
       loginTime: Date.now(),
     });
 
@@ -62,6 +91,7 @@ export async function POST(request: Request) {
         id: admin.id,
         name: admin.name,
         email: admin.email,
+        status: currentStatus,
         created_at: admin.created_at,
       },
     });
