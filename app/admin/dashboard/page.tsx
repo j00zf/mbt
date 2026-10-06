@@ -2134,19 +2134,17 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <button
                     key={tab.id}
                     onClick={() => setAppStatusFilter(tab.id)}
-                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                      appStatusFilter === tab.id
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50"
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${appStatusFilter === tab.id
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50"
+                      }`}
                   >
                     <span>{tab.label}</span>
                     <span
-                      className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                        appStatusFilter === tab.id
-                          ? "bg-white/20 text-white"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] ${appStatusFilter === tab.id
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 text-slate-600"
+                        }`}
                     >
                       {tab.count}
                     </span>
@@ -2379,11 +2377,9 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-300 border border-teal-400/30 flex items-center justify-center shrink-0">
-                        <Star className="w-5 h-5 text-amber-300 fill-amber-300" />
-                      </div>
+
                       <div>
-                        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
                           Shortlisted Student Candidates
                           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-400/20 text-teal-200 border border-teal-400/30">
                             Candidate Evaluation Phase
@@ -2399,7 +2395,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <button
                       onClick={() => exportToExcel(shortlistedList, "mbt_shortlisted_students")}
-                      className="inline-flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-md shadow-teal-500/20 cursor-pointer"
+                      className="inline-flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-teal-500/20 cursor-pointer"
                       title="Download Shortlisted Students as Excel CSV"
                     >
                       <Download className="w-4 h-4" />
@@ -2423,7 +2419,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <span className="text-[11px] font-bold text-teal-200 uppercase tracking-wider block">
                       Total Shortlisted
                     </span>
-                    <span className="text-2xl font-black text-white mt-1 block">
+                    <span className="text-2xl font-bold text-white mt-1 block">
                       {shortlistedAppsCount} Candidates
                     </span>
                     <span className="text-[11px] text-teal-300/70">Ready for interview or selection</span>
@@ -2443,7 +2439,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <span className="text-[11px] font-bold text-teal-200 uppercase tracking-wider block">
                       Conversion Rate
                     </span>
-                    <span className="text-2xl font-black text-white mt-1 block">
+                    <span className="text-2xl font-bold text-white mt-1 block">
                       {applications.length > 0
                         ? `${Math.round((shortlistedAppsCount / applications.length) * 100)}%`
                         : "0%"}
@@ -2658,7 +2654,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                         <Award className="w-5 h-5 text-emerald-300" />
                       </div>
                       <div>
-                        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
                           Selected Internship Cohort
                           <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
                             Official MBT Interns
@@ -2672,9 +2668,20 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </div>
 
                   <div className="flex items-center gap-2.5 flex-wrap">
+                    <a
+                      href={process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL || "https://chat.whatsapp.com/FcnvVlJ73L8CMU1MB4Ynwf"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-950/20 cursor-pointer"
+                      title="Open Official MBT Interns WhatsApp Group"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>WhatsApp Cohort</span>
+                    </a>
+
                     <button
                       onClick={() => exportToExcel(selectedList, "mbt_selected_interns")}
-                      className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+                      className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
                       title="Download Selected Interns Roster as Excel CSV"
                     >
                       <Download className="w-4 h-4" />
@@ -2698,7 +2705,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
                       Total Active Interns
                     </span>
-                    <span className="text-2xl font-black text-white mt-1 block">
+                    <span className="text-2xl font-bold text-white mt-1 block">
                       {acceptedAppsCount} Interns
                     </span>
                     <span className="text-[11px] text-emerald-300/70">Onboarded into MBT projects</span>
@@ -2708,7 +2715,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
                       Domains Represented
                     </span>
-                    <span className="text-2xl font-black text-white mt-1 block">
+                    <span className="text-2xl font-bold text-white mt-1 block">
                       {new Set(selectedList.map((i) => i.school_code)).size} Domains
                     </span>
                     <span className="text-[11px] text-emerald-300/70">Across 16 MBT Schools</span>
@@ -2718,7 +2725,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider block">
                       Partner Colleges
                     </span>
-                    <span className="text-2xl font-black text-white mt-1 block">
+                    <span className="text-2xl font-bold text-white mt-1 block">
                       {new Set(selectedList.map((i) => i.college)).size} Institutions
                     </span>
                     <span className="text-[11px] text-emerald-300/70">Academic representation</span>
@@ -3042,13 +3049,12 @@ create policy "Allow all operations for admins" on public.admins for all using (
                             </td>
                             <td className="px-5 py-4">
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[11px] font-bold capitalize ${
-                                  item.status === "active"
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                    : item.status === "draft"
+                                className={`px-2 py-0.5 rounded-full text-[11px] font-bold capitalize ${item.status === "active"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : item.status === "draft"
                                     ? "bg-amber-50 text-amber-700 border border-amber-200"
                                     : "bg-slate-100 text-slate-600 border border-slate-200"
-                                }`}
+                                  }`}
                               >
                                 {item.status}
                               </span>
@@ -3168,28 +3174,25 @@ create policy "Allow all operations for admins" on public.admins for all using (
                       return (
                         <div
                           key={admin.id}
-                          className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                            isActive
-                              ? "bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-xs"
-                              : "bg-amber-50/40 border-amber-200/80"
-                          }`}
+                          className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${isActive
+                            ? "bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-xs"
+                            : "bg-amber-50/40 border-amber-200/80"
+                            }`}
                         >
                           {/* Admin Details */}
                           <div className="flex items-start sm:items-center gap-3.5">
                             <div className="relative">
                               <div
-                                className={`w-11 h-11 rounded-2xl font-bold flex items-center justify-center text-sm shadow-xs ${
-                                  isActive
-                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                    : "bg-amber-100 text-amber-800 border border-amber-300"
-                                }`}
+                                className={`w-11 h-11 rounded-2xl font-bold flex items-center justify-center text-sm shadow-xs ${isActive
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  : "bg-amber-100 text-amber-800 border border-amber-300"
+                                  }`}
                               >
                                 {admin.name?.[0]?.toUpperCase() || "A"}
                               </div>
                               <span
-                                className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
-                                  isActive ? "bg-emerald-500" : "bg-amber-500"
-                                }`}
+                                className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${isActive ? "bg-emerald-500" : "bg-amber-500"
+                                  }`}
                                 title={isActive ? "Status: Active" : "Status: Inactive"}
                               />
                             </div>
@@ -3250,11 +3253,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                               <button
                                 onClick={() => handleToggleAdminStatus(admin.id, admin.status)}
                                 disabled={actionLoading}
-                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-                                  isActive
-                                    ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300"
-                                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shadow-emerald-600/20"
-                                }`}
+                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${isActive
+                                  ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shadow-emerald-600/20"
+                                  }`}
                                 title={
                                   isActive
                                     ? "Deactivate this admin account to revoke portal login access"
@@ -3311,7 +3313,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </button>
                 </div>
                 <pre className="bg-slate-950 p-3.5 rounded-xl text-[11px] font-mono text-emerald-300 overflow-x-auto border border-slate-800/80 leading-relaxed">
-{`-- Add status column with default 'inactive'
+                  {`-- Add status column with default 'inactive'
 alter table public.admins add column if not exists status text not null default 'inactive'::text;
 
 -- Activate existing legacy administrators so they retain access

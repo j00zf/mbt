@@ -426,6 +426,11 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
   const { to, fullName, applicationId, schoolCode, schoolName, durationModel, roleTitle, notes } =
     params;
 
+  const whatsappGroupUrl =
+    process.env.WHATSAPP_GROUP_URL ||
+    process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL ||
+    "https://chat.whatsapp.com/FcnvVlJ73L8CMU1MB4Ynwf";
+
   const subject = `🎉 Congratulations! Internship Selection Offer — Mission Better Tomorrow (MBT) (#MBT-APP-${applicationId})`;
 
   const htmlContent = `
@@ -526,11 +531,33 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
                 }
               </table>
 
+              <!-- WhatsApp Community Joining Card -->
+              <div style="background-color: #f0fdf4; border: 2px solid #22c55e; border-radius: 14px; padding: 22px 24px; margin-bottom: 24px; text-align: center;">
+                <div style="display: inline-block; background-color: #25d366; color: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+                  💬 Action Required &bull; Official WhatsApp Group
+                </div>
+                <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 800; color: #14532d;">
+                  Join the MBT Interns WhatsApp Group
+                </h3>
+                <p style="margin: 0 0 16px 0; font-size: 13px; color: #166534; line-height: 1.5;">
+                  All orientation schedules, mentor briefings, team coordination, and live announcements will be shared through our official WhatsApp cohort group. Please join immediately:
+                </p>
+                <div style="margin: 16px 0;">
+                  <a href="${whatsappGroupUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #25d366; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 12px 28px; border-radius: 10px; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);">
+                    👉 Click to Join WhatsApp Group
+                  </a>
+                </div>
+                <p style="margin: 10px 0 0 0; font-size: 11px; color: #15803d; word-break: break-all;">
+                  Direct link: <a href="${whatsappGroupUrl}" style="color: #15803d; font-weight: 600; text-decoration: underline;">${whatsappGroupUrl}</a>
+                </p>
+              </div>
+
               <!-- Next Steps for Onboarding -->
               <h3 style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">
                 Your Next Steps:
               </h3>
               <ol style="margin: 0 0 24px 0; padding-left: 20px; font-size: 13px; color: #475569; line-height: 1.7;">
+                <li><strong>Join the WhatsApp Group:</strong> Click the button above to enter the official MBT cohort group for instant onboarding updates.</li>
                 <li><strong>Confirm Acceptance:</strong> Reply to this email acknowledging your acceptance and confirming your start readiness.</li>
                 <li><strong>Orientation & Mentor Allocation:</strong> You will be assigned a faculty mentor and project advisor along with project repository access.</li>
                 <li><strong>Milestone & Certification:</strong> Complete milestones as outlined in your curriculum track to receive your formal MBT Internship Certificate & Letter of Recommendation.</li>
@@ -580,9 +607,13 @@ ${roleTitle ? `- Role: ${roleTitle}\n` : ""}- Domain: School ${schoolCode}: ${sc
 ${notes ? `- Mentor Instructions: ${notes}\n` : ""}
 
 NEXT STEPS:
-1. Please reply to confirm your acceptance.
-2. Your project guide and orientation schedule will be shared shortly.
-3. Upon milestone completion, you will receive your formal MBT Internship Certificate and recommendation.
+1. JOIN THE OFFICIAL MBT WHATSAPP GROUP:
+   Please join our official MBT Intern WhatsApp group immediately to receive onboarding instructions and connect with mentors:
+   ${whatsappGroupUrl}
+
+2. Please reply to this email to confirm your acceptance.
+3. Your project guide and orientation schedule will be shared shortly.
+4. Upon milestone completion, you will receive your formal MBT Internship Certificate and recommendation.
 
 Warm regards,
 Mission Better Tomorrow (MBT) Leadership & Mentorship Council
