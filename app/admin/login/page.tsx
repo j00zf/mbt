@@ -97,10 +97,7 @@ export default function AdminLoginPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Admin Portal Login
           </h1>
-          <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5 font-medium">
-            <Database className="w-3.5 h-3.5 text-emerald-600" />
-            Supabase Authenticated &bull; <code className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono font-medium border border-slate-200">public.admins</code>
-          </p>
+
         </div>
 
         {/* Card Body */}
@@ -119,16 +116,14 @@ export default function AdminLoginPage() {
 
           {error && (
             <div
-              className={`mb-6 p-4 rounded-xl border text-sm flex items-start gap-3 animate-fadeIn ${
-                isInactive
-                  ? "bg-amber-50 border-amber-200 text-amber-900"
-                  : "bg-rose-50 border-rose-200 text-rose-800"
-              }`}
+              className={`mb-6 p-4 rounded-xl border text-sm flex items-start gap-3 animate-fadeIn ${isInactive
+                ? "bg-amber-50 border-amber-200 text-amber-900"
+                : "bg-rose-50 border-rose-200 text-rose-800"
+                }`}
             >
               <AlertCircle
-                className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                  isInactive ? "text-amber-600" : "text-rose-600"
-                }`}
+                className={`w-5 h-5 flex-shrink-0 mt-0.5 ${isInactive ? "text-amber-600" : "text-rose-600"
+                  }`}
               />
               <div>
                 <p className="font-semibold">{isInactive ? "Account Inactive" : "Authentication Failed"}</p>
@@ -230,24 +225,10 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          {/* Footer link */}
-          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
-            <p className="text-xs text-slate-500">
-              Need a new admin account?{" "}
-              <Link
-                href="/admin/register"
-                className="text-emerald-700 hover:text-emerald-800 font-semibold transition-colors"
-              >
-                Register here
-              </Link>
-            </p>
-          </div>
+
         </div>
 
-        {/* Database info footer */}
-        <div className="mt-6 text-center text-xs text-slate-500">
-          Supabase PostgreSQL &bull; Table <span className="font-mono text-slate-700 font-medium">public.admins</span>
-        </div>
+
       </div>
     </div>
   );
