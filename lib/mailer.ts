@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { escapeHtml } from "./security";
 
 const smtpUser = process.env.SMTP_USER || "beavertechindia@gmail.com";
 const smtpPass = process.env.SMTP_PASS || "zkbaiskmypqauyir";
@@ -42,7 +43,17 @@ export async function sendApplicationConfirmationEmail(params: SendApplicationEm
     degree,
   } = params;
 
-  const subject = `Application Received — MBT Internship Portal (#MBT-APP-${applicationId})`;
+  // Escape all variables to prevent HTML injection / XSS in emails
+  const safeFullName = escapeHtml(fullName);
+  const safeSchoolCode = escapeHtml(schoolCode);
+  const safeSchoolName = escapeHtml(schoolName);
+  const safeDurationModel = escapeHtml(durationModel);
+  const safeRoleTitle = roleTitle ? escapeHtml(roleTitle) : null;
+  const safeCollege = college ? escapeHtml(college) : null;
+  const safeDegree = degree ? escapeHtml(degree) : null;
+  const safeAppId = escapeHtml(applicationId);
+
+  const subject = `Application Received — MBT Internship Portal (#MBT-APP-${safeAppId})`;
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -84,7 +95,7 @@ export async function sendApplicationConfirmationEmail(params: SendApplicationEm
           <tr>
             <td style="padding: 32px 30px;">
               <p style="font-size: 15px; margin: 0 0 16px 0; color: #1e293b;">
-                Dear <strong>${fullName}</strong>,
+                Dear <strong>${safeFullName}</strong>,
               </p>
 
               <p style="font-size: 14px; margin: 0 0 20px 0; color: #475569; line-height: 1.6;">
@@ -111,27 +122,27 @@ export async function sendApplicationConfirmationEmail(params: SendApplicationEm
                 </tr>
                 <tr>
                   <td style="padding-top: 10px; color: #64748b; width: 40%;">Reference Number:</td>
-                  <td style="padding-top: 10px; color: #0f172a; font-weight: 700; font-family: monospace;">#MBT-APP-${applicationId}</td>
+                  <td style="padding-top: 10px; color: #0f172a; font-weight: 700; font-family: monospace;">#MBT-APP-${safeAppId}</td>
                 </tr>
-                ${roleTitle
+                ${safeRoleTitle
       ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Applied Position:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 700;">${roleTitle}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 700;">${safeRoleTitle}</td>
                 </tr>`
       : ""
     }
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Domain :</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">Domain ${schoolCode}: ${schoolName}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">Domain ${safeSchoolCode}: ${safeSchoolName}</td>
                 </tr>
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Internship Duration:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">${durationModel}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">${safeDurationModel}</td>
                 </tr>
-                ${college
+                ${safeCollege
       ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Institution:</td>
-                  <td style="padding-top: 8px; color: #334155;">${college}${degree ? ` (${degree})` : ""}</td>
+                  <td style="padding-top: 8px; color: #334155;">${safeCollege}${safeDegree ? ` (${safeDegree})` : ""}</td>
                 </tr>`
       : ""
     }
@@ -166,7 +177,7 @@ export async function sendApplicationConfirmationEmail(params: SendApplicationEm
                 &copy; ${new Date().getFullYear()} Mission Better Tomorrow (MBT). All rights reserved.
               </p>
               <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">
-                This is an automated notification for your internship application reference #MBT-APP-${applicationId}.
+                This is an automated notification for your internship application reference #MBT-APP-${safeAppId}.
               </p>
             </td>
           </tr>
@@ -241,7 +252,16 @@ export async function sendApplicationShortlistedEmail(params: StatusNotification
   const { to, fullName, applicationId, schoolCode, schoolName, durationModel, roleTitle, notes } =
     params;
 
-  const subject = `Congratulations! You've been Shortlisted — MBT Internship (#MBT-APP-${applicationId})`;
+  // Escape all variables to prevent HTML injection / XSS in emails
+  const safeFullName = escapeHtml(fullName);
+  const safeSchoolCode = escapeHtml(schoolCode);
+  const safeSchoolName = escapeHtml(schoolName);
+  const safeDurationModel = escapeHtml(durationModel);
+  const safeRoleTitle = roleTitle ? escapeHtml(roleTitle) : null;
+  const safeNotes = notes ? escapeHtml(notes) : null;
+  const safeAppId = escapeHtml(applicationId);
+
+  const subject = `Congratulations! You've been Shortlisted — MBT Internship (#MBT-APP-${safeAppId})`;
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -282,7 +302,7 @@ export async function sendApplicationShortlistedEmail(params: StatusNotification
           <tr>
             <td style="padding: 32px 30px;">
               <p style="font-size: 15px; margin: 0 0 16px 0; color: #1e293b;">
-                Dear <strong>${fullName}</strong>,
+                Dear <strong>${safeFullName}</strong>,
               </p>
 
               <p style="font-size: 14px; margin: 0 0 20px 0; color: #475569; line-height: 1.6;">
@@ -309,27 +329,27 @@ export async function sendApplicationShortlistedEmail(params: StatusNotification
                 </tr>
                 <tr>
                   <td style="padding-top: 10px; color: #64748b; width: 40%;">Application Ref:</td>
-                  <td style="padding-top: 10px; color: #0f172a; font-weight: 700; font-family: monospace;">#MBT-APP-${applicationId}</td>
+                  <td style="padding-top: 10px; color: #0f172a; font-weight: 700; font-family: monospace;">#MBT-APP-${safeAppId}</td>
                 </tr>
-                ${roleTitle
+                ${safeRoleTitle
       ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Applied Role:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 700;">${roleTitle}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 700;">${safeRoleTitle}</td>
                 </tr>`
       : ""
     }
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Domain:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;"> ${schoolCode}: ${schoolName}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;"> ${safeSchoolCode}: ${safeSchoolName}</td>
                 </tr>
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Internship Track:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">${durationModel}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">${safeDurationModel}</td>
                 </tr>
-                ${notes
+                ${safeNotes
       ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Reviewer Note:</td>
-                  <td style="padding-top: 8px; color: #0369a1; font-weight: 500; font-style: italic;">"${notes}"</td>
+                  <td style="padding-top: 8px; color: #0369a1; font-weight: 500; font-style: italic;">"${safeNotes}"</td>
                 </tr>`
       : ""
     }
@@ -364,7 +384,7 @@ export async function sendApplicationShortlistedEmail(params: StatusNotification
                 &copy; ${new Date().getFullYear()} Mission Better Tomorrow (MBT). All rights reserved.
               </p>
               <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">
-                Shortlist status update for reference #MBT-APP-${applicationId}.
+                Shortlist status update for reference #MBT-APP-${safeAppId}.
               </p>
             </td>
           </tr>
@@ -424,12 +444,23 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
   const { to, fullName, applicationId, schoolCode, schoolName, durationModel, roleTitle, notes } =
     params;
 
+  // Escape all variables to prevent HTML injection / XSS in emails
+  const safeFullName = escapeHtml(fullName);
+  const safeSchoolCode = escapeHtml(schoolCode);
+  const safeSchoolName = escapeHtml(schoolName);
+  const safeDurationModel = escapeHtml(durationModel);
+  const safeRoleTitle = roleTitle ? escapeHtml(roleTitle) : null;
+  const safeNotes = notes ? escapeHtml(notes) : null;
+  const safeAppId = escapeHtml(applicationId);
+
   const whatsappGroupUrl =
     process.env.WHATSAPP_GROUP_URL ||
     process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL ||
     "https://chat.whatsapp.com/FcnvVlJ73L8CMU1MB4Ynwf";
 
-  const subject = `🎉 Congratulations! Internship Selection Offer — Mission Better Tomorrow (MBT) (#MBT-APP-${applicationId})`;
+  const safeWhatsappGroupUrl = escapeHtml(whatsappGroupUrl);
+
+  const subject = `🎉 Congratulations! Internship Selection Offer — Mission Better Tomorrow (MBT) (#MBT-APP-${safeAppId})`;
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -470,7 +501,7 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
           <tr>
             <td style="padding: 32px 30px;">
               <p style="font-size: 15px; margin: 0 0 16px 0; color: #1e293b;">
-                Dear <strong>${fullName}</strong>,
+                Dear <strong>${safeFullName}</strong>,
               </p>
 
               <p style="font-size: 14px; margin: 0 0 20px 0; color: #334155; line-height: 1.6;">
@@ -497,31 +528,31 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
                 </tr>
                 <tr>
                   <td style="padding-top: 10px; color: #64748b; width: 40%;">Intern ID / Ref:</td>
-                  <td style="padding-top: 10px; color: #0f172a; font-weight: 700; font-family: monospace;">#MBT-APP-${applicationId}</td>
+                  <td style="padding-top: 10px; color: #0f172a; font-weight: 700; font-family: monospace;">#MBT-APP-${safeAppId}</td>
                 </tr>
-                ${roleTitle
+                ${safeRoleTitle
       ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Assigned Role:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 700;">${roleTitle}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 700;">${safeRoleTitle}</td>
                 </tr>`
       : ""
     }
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Domain:</td>
-                  <td style="padding-top: 8px; color: #059669; font-weight: 700;"> ${schoolCode}: ${schoolName}</td>
+                  <td style="padding-top: 8px; color: #059669; font-weight: 700;"> ${safeSchoolCode}: ${safeSchoolName}</td>
                 </tr>
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Internship Duration:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">${durationModel}</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 600;">${safeDurationModel}</td>
                 </tr>
                 <tr>
                   <td style="padding-top: 8px; color: #64748b;">Official Status:</td>
                   <td style="padding-top: 8px; color: #059669; font-weight: 800;">ACCEPTED / ONBOARDED</td>
                 </tr>
-                ${notes
+                ${safeNotes
       ? `<tr>
                   <td style="padding-top: 8px; color: #64748b;">Mentor Instructions:</td>
-                  <td style="padding-top: 8px; color: #0f172a; font-weight: 500; font-style: italic;">"${notes}"</td>
+                  <td style="padding-top: 8px; color: #0f172a; font-weight: 500; font-style: italic;">"${safeNotes}"</td>
                 </tr>`
       : ""
     }
@@ -539,12 +570,12 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
                   All orientation schedules, mentor briefings, team coordination, and live announcements will be shared through our official WhatsApp cohort group. Please join immediately:
                 </p>
                 <div style="margin: 16px 0;">
-                  <a href="${whatsappGroupUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #25d366; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 12px 28px; border-radius: 10px; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);">
+                  <a href="${safeWhatsappGroupUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #25d366; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 12px 28px; border-radius: 10px; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);">
                     👉 Click to Join WhatsApp Group
                   </a>
                 </div>
                 <p style="margin: 10px 0 0 0; font-size: 11px; color: #15803d; word-break: break-all;">
-                  Direct link: <a href="${whatsappGroupUrl}" style="color: #15803d; font-weight: 600; text-decoration: underline;">${whatsappGroupUrl}</a>
+                  Direct link: <a href="${safeWhatsappGroupUrl}" style="color: #15803d; font-weight: 600; text-decoration: underline;">${safeWhatsappGroupUrl}</a>
                 </p>
               </div>
 
@@ -578,7 +609,7 @@ export async function sendApplicationAcceptedEmail(params: StatusNotificationEma
                 &copy; ${new Date().getFullYear()} Mission Better Tomorrow (MBT). All rights reserved.
               </p>
               <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8;">
-                Selection notification for Reference #MBT-APP-${applicationId}.
+                Selection notification for Reference #MBT-APP-${safeAppId}.
               </p>
             </td>
           </tr>

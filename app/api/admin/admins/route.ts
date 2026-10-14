@@ -63,6 +63,8 @@ export async function GET() {
   }
 }
 
+import { sanitizePositiveInt } from "@/lib/security";
+
 export async function PATCH(request: Request) {
   try {
     const session = await getAdminSession();
@@ -73,9 +75,9 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { adminId, status } = body;
 
-    const numericTargetId = Number(adminId);
+    const numericTargetId = sanitizePositiveInt(adminId);
     if (!numericTargetId) {
-      return NextResponse.json({ error: "Target Admin ID is required." }, { status: 400 });
+      return NextResponse.json({ error: "A valid numeric Target Admin ID is required." }, { status: 400 });
     }
 
     // Constraint: "another admin can only toggle the status of admin"

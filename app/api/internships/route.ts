@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getLocalInternships } from "@/lib/storage";
+import { sanitizePostgrestFilter } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -8,8 +9,17 @@ export const revalidate = 0;
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const school = searchParams.get("school");
-    const track = searchParams.get("track");
+    const rawSchool = searchParams.get("school");
+    const rawTrack = searchParams.get("track");
+
+    const school =
+      rawSchool && rawSchool !== "all"
+        ? sanitizePostgrestFilter(rawSchool).toUpperCase()
+        : null;
+    const track =
+      rawTrack && rawTrack !== "all"
+        ? sanitizePostgrestFilter(rawTrack)
+        : null;
 
     let query = supabaseAdmin
       .from("internships")
@@ -17,11 +27,11 @@ export async function GET(request: Request) {
       .eq("status", "active")
       .order("created_at", { ascending: false });
 
-    if (school && school !== "all") {
-      query = query.eq("school_code", school.toUpperCase());
+    if (school && /^[A-Z0-9_-]{1,10}$/.test(school)) {
+      query = query.eq("school_code", school);
     }
 
-    if (track && track !== "all") {
+    if (track && track.length <= 50) {
       query = query.ilike("duration_model", `${track}%`);
     }
 
@@ -30,10 +40,10 @@ export async function GET(request: Request) {
     if (error) {
       console.warn("Public internships query error, falling back to local store:", error);
       let list = getLocalInternships().filter((i) => i.status === "active");
-      if (school && school !== "all") {
-        list = list.filter((i) => i.school_code === school.toUpperCase());
+      if (school && /^[A-Z0-9_-]{1,10}$/.test(school)) {
+        list = list.filter((i) => i.school_code === school);
       }
-      if (track && track !== "all") {
+      if (track && track.length <= 50) {
         list = list.filter((i) => i.duration_model?.toLowerCase().startsWith(track.toLowerCase()));
       }
       return NextResponse.json(

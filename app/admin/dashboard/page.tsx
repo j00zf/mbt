@@ -55,6 +55,7 @@ import {
   DEFAULT_MBT_SCHOOLS,
   DEFAULT_DURATION_MODELS,
 } from "@/lib/supabase";
+import { getSafeHref } from "@/lib/security";
 
 interface AdminRecord {
   id: number;
@@ -2281,29 +2282,29 @@ create policy "Allow all operations for admins" on public.admins for all using (
 
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
-                                {app.resume_url && (
+                                {getSafeHref(app.resume_url) && (
                                   <a
-                                    href={app.resume_url}
+                                    href={getSafeHref(app.resume_url)}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="p-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 text-[11px] flex items-center gap-1 px-2 font-medium"
                                   >
                                     <span>Resume</span>
                                     <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
                                 )}
-                                {app.linkedin_url && (
+                                {getSafeHref(app.linkedin_url) && (
                                   <a
-                                    href={app.linkedin_url}
+                                    href={getSafeHref(app.linkedin_url)}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="p-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 text-[11px] flex items-center gap-1 px-2 font-medium"
                                   >
                                     <span>LinkedIn</span>
                                     <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
                                 )}
-                                {!app.resume_url && !app.linkedin_url && (
+                                {!getSafeHref(app.resume_url) && !getSafeHref(app.linkedin_url) && (
                                   <span className="text-slate-400 text-[11px]">-</span>
                                 )}
                               </div>
@@ -2563,27 +2564,30 @@ create policy "Allow all operations for admins" on public.admins for all using (
 
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
-                                {app.resume_url && (
+                                {getSafeHref(app.resume_url) && (
                                   <a
-                                    href={app.resume_url}
+                                    href={getSafeHref(app.resume_url)}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="p-1 rounded-lg bg-slate-100 hover:bg-teal-50 text-slate-600 hover:text-teal-700 text-[11px] flex items-center gap-1 px-2 font-medium"
                                   >
                                     <span>Resume</span>
                                     <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
                                 )}
-                                {app.linkedin_url && (
+                                {getSafeHref(app.linkedin_url) && (
                                   <a
-                                    href={app.linkedin_url}
+                                    href={getSafeHref(app.linkedin_url)}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="p-1 rounded-lg bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 text-[11px] flex items-center gap-1 px-2 font-medium"
                                   >
                                     <span>LinkedIn</span>
                                     <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
+                                )}
+                                {!getSafeHref(app.resume_url) && !getSafeHref(app.linkedin_url) && (
+                                  <span className="text-slate-400 text-[11px]">-</span>
                                 )}
                               </div>
                             </td>
@@ -2847,27 +2851,30 @@ create policy "Allow all operations for admins" on public.admins for all using (
 
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
-                                {app.resume_url && (
+                                {getSafeHref(app.resume_url) && (
                                   <a
-                                    href={app.resume_url}
+                                    href={getSafeHref(app.resume_url)}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="p-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 text-[11px] flex items-center gap-1 px-2 font-medium"
                                   >
                                     <span>Resume</span>
                                     <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
                                 )}
-                                {app.linkedin_url && (
+                                {getSafeHref(app.linkedin_url) && (
                                   <a
-                                    href={app.linkedin_url}
+                                    href={getSafeHref(app.linkedin_url)}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="p-1 rounded-lg bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 text-[11px] flex items-center gap-1 px-2 font-medium"
                                   >
                                     <span>LinkedIn</span>
                                     <ExternalLink className="w-3.5 h-3.5" />
                                   </a>
+                                )}
+                                {!getSafeHref(app.resume_url) && !getSafeHref(app.linkedin_url) && (
+                                  <span className="text-slate-400 text-[11px]">-</span>
                                 )}
                               </div>
                             </td>
@@ -4718,22 +4725,22 @@ update public.admins set status = 'active' where status is null;`}
               )}
 
               <div className="flex items-center gap-3">
-                {selectedApplication.resume_url && (
+                {getSafeHref(selectedApplication.resume_url) && (
                   <a
-                    href={selectedApplication.resume_url}
+                    href={getSafeHref(selectedApplication.resume_url)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200 flex items-center gap-1.5 hover:bg-emerald-100 transition-colors"
                   >
                     <span>View Resume / Portfolio</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}
-                {selectedApplication.linkedin_url && (
+                {getSafeHref(selectedApplication.linkedin_url) && (
                   <a
-                    href={selectedApplication.linkedin_url}
+                    href={getSafeHref(selectedApplication.linkedin_url)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-800 font-semibold border border-indigo-200 flex items-center gap-1.5 hover:bg-indigo-100 transition-colors"
                   >
                     <span>LinkedIn Profile</span>

@@ -50,6 +50,12 @@ export async function GET(request: Request) {
   }
 }
 
+import {
+  sanitizeText,
+  sanitizePositiveInt,
+  containsSqlInjection,
+} from "@/lib/security";
+
 export async function POST(request: Request) {
   try {
     const session = await getAdminSession();
@@ -68,19 +74,32 @@ export async function POST(request: Request) {
       is_active = true,
     } = body;
 
-    if (!model_code?.trim() || !title?.trim() || !duration?.trim()) {
+    if (!model_code || !title || !duration) {
       return NextResponse.json(
         { error: "Model code (e.g. 'Model A'), title, and duration are required." },
         { status: 400 }
       );
     }
 
+    if (
+      containsSqlInjection(model_code) ||
+      containsSqlInjection(title) ||
+      containsSqlInjection(duration) ||
+      containsSqlInjection(suitable_for) ||
+      containsSqlInjection(focus)
+    ) {
+      return NextResponse.json(
+        { error: "Suspicious characters or SQL syntax detected." },
+        { status: 400 }
+      );
+    }
+
     const payload = {
-      model_code: model_code.trim(),
-      title: title.trim(),
-      duration: duration.trim(),
-      suitable_for: (suitable_for || "").trim(),
-      focus: (focus || "").trim(),
+      model_code: sanitizeText(model_code, 50),
+      title: sanitizeText(title, 100),
+      duration: sanitizeText(duration, 50),
+      suitable_for: sanitizeText(suitable_for, 250),
+      focus: sanitizeText(focus, 250),
       sort_order: Number(sort_order) || 0,
       is_active: Boolean(is_active),
     };
@@ -135,31 +154,42 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, model_code, title, duration, suitable_for, focus, sort_order, is_active } = body;
 
-    if (!id) {
-      return NextResponse.json({ error: "Track ID is required." }, { status: 400 });
+    const numericId = sanitizePositiveInt(id);
+    if (!numericId) {
+      return NextResponse.json({ error: "A valid numeric Track ID is required." }, { status: 400 });
     }
 
-    const updates: Record<string, any> = {
+    if (
+      (model_code && containsSqlInjection(model_code)) ||
+      (title && containsSqlInjection(title)) ||
+      (duration && containsSqlInjection(duration)) ||
+      (suitable_for && containsSqlInjection(suitable_for)) ||
+      (focus && containsSqlInjection(focus))
+    ) {
+      return NextResponse.json({ error: "Suspicious characters or SQL syntax detected." }, { status: 400 });
+    }
+
+    const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
-    if (model_code !== undefined) updates.model_code = model_code.trim();
-    if (title !== undefined) updates.title = title.trim();
-    if (duration !== undefined) updates.duration = duration.trim();
-    if (suitable_for !== undefined) updates.suitable_for = suitable_for.trim();
-    if (focus !== undefined) updates.focus = focus.trim();
-    if (sort_order !== undefined) updates.sort_order = Number(sort_order);
+    if (model_code !== undefined) updates.model_code = sanitizeText(model_code, 50);
+    if (title !== undefined) updates.title = sanitizeText(title, 100);
+    if (duration !== undefined) updates.duration = sanitizeText(duration, 50);
+    if (suitable_for !== undefined) updates.suitable_for = sanitizeText(suitable_for, 250);
+    if (focus !== undefined) updates.focus = sanitizeText(focus, 250);
+    if (sort_order !== undefined) updates.sort_order = Number(sort_order) || 0;
     if (is_active !== undefined) updates.is_active = Boolean(is_active);
 
     const { data: updatedTrack, error } = await supabase
       .from("duration_models")
       .update(updates)
-      .eq("id", id)
+      .eq("id", numericId)
       .select("*")
       .single();
 
     if (error) {
       if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
-        const localUpdated = updateLocalTrack(Number(id), updates);
+        const localUpdated = updateLocalTrack(numericId, updates);
         return NextResponse.json({
           success: true,
           track: localUpdated,
@@ -169,7 +199,7 @@ export async function PUT(request: Request) {
       }
 
       console.error("Supabase update duration track error:", error);
-      const localUpdated = updateLocalTrack(Number(id), updates);
+      const localUpdated = updateLocalTrack(numericId, updates);
       return NextResponse.json({
         success: true,
         track: localUpdated,
@@ -200,11 +230,10 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
-    if (!id) {
-      return NextResponse.json({ error: "Track ID is required." }, { status: 400 });
+    const numericId = sanitizePositiveInt(id);
+    if (!numericId) {
+      return NextResponse.json({ error: "A valid numeric Track ID is required." }, { status: 400 });
     }
-
-    const numericId = Number(id);
 
     const { error } = await supabase.from("duration_models").delete().eq("id", numericId);
 

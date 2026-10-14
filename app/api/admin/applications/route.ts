@@ -44,6 +44,22 @@ export async function GET() {
   }
 }
 
+import {
+  sanitizePositiveInt,
+  sanitizeText,
+  validateWhitelist,
+  containsSqlInjection,
+} from "@/lib/security";
+
+const VALID_APPLICATION_STATUSES = [
+  "pending",
+  "under_review",
+  "shortlisted",
+  "accepted",
+  "selected",
+  "rejected",
+] as const;
+
 export async function PUT(request: Request) {
   try {
     const session = await getAdminSession();
@@ -54,20 +70,29 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, status, notes } = body;
 
-    if (!id) {
-      return NextResponse.json({ error: "Application ID is required." }, { status: 400 });
+    const numericId = sanitizePositiveInt(id);
+    if (!numericId) {
+      return NextResponse.json({ error: "A valid numeric Application ID is required." }, { status: 400 });
     }
 
-    const updates: Record<string, any> = {
+    if (notes && containsSqlInjection(notes)) {
+      return NextResponse.json({ error: "Suspicious characters or SQL patterns detected in notes." }, { status: 400 });
+    }
+
+    const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
-    if (status !== undefined) updates.status = status;
-    if (notes !== undefined) updates.notes = notes;
+    if (status !== undefined) {
+      updates.status = validateWhitelist(status, VALID_APPLICATION_STATUSES, "pending");
+    }
+    if (notes !== undefined) {
+      updates.notes = notes ? sanitizeText(notes, 1000) : null;
+    }
 
     const { data: updatedApp, error } = await supabaseAdmin
       .from("internship_applications")
       .update(updates)
-      .eq("id", id)
+      .eq("id", numericId)
       .select("*")
       .single();
 
@@ -152,14 +177,15 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
-    if (!id) {
-      return NextResponse.json({ error: "Application ID is required." }, { status: 400 });
+    const numericId = sanitizePositiveInt(id);
+    if (!numericId) {
+      return NextResponse.json({ error: "A valid numeric Application ID is required." }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin
       .from("internship_applications")
       .delete()
-      .eq("id", id);
+      .eq("id", numericId);
 
     if (error) {
       console.error("Error deleting application:", error);

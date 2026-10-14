@@ -164,9 +164,47 @@ export default function StudentApplyPage() {
     e.preventDefault();
     setError(null);
 
-    if (!fullName.trim() || !email.trim() || !phone.trim() || !college.trim() || !degree.trim()) {
+    const cleanFullName = fullName.trim();
+    const cleanEmail = email.trim();
+    const cleanPhone = phone.trim();
+    const cleanCollege = college.trim();
+    const cleanDegree = degree.trim();
+    const cleanResume = resumeUrl.trim();
+    const cleanLinkedin = linkedinUrl.trim();
+
+    if (!cleanFullName || !cleanEmail || !cleanPhone || !cleanCollege || !cleanDegree) {
       setError("Please fill in all required personal and academic information.");
       return;
+    }
+
+    // Check for XSS & SQLi characters in text fields
+    if (
+      /[<>'";\0]/.test(cleanFullName) ||
+      /(union\s+select|--|\/\*)/i.test(cleanFullName)
+    ) {
+      setError("Name contains forbidden or suspicious characters.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    // Safe URL validation to prevent stored XSS via javascript: or data: schemes
+    if (cleanResume) {
+      if (!/^https?:\/\//i.test(cleanResume) || /^(javascript|data|vbscript):/i.test(cleanResume)) {
+        setError("Resume / Portfolio link must be a valid web URL starting with https:// or http://");
+        return;
+      }
+    }
+
+    if (cleanLinkedin) {
+      if (!/^https?:\/\//i.test(cleanLinkedin) || /^(javascript|data|vbscript):/i.test(cleanLinkedin)) {
+        setError("LinkedIn profile link must be a valid web URL starting with https:// or http://");
+        return;
+      }
     }
 
     if (openPositions.length > 0 && !selectedInternshipId) {
@@ -182,18 +220,18 @@ export default function StudentApplyPage() {
         body: JSON.stringify({
           internship_id: selectedInternshipId,
           role_title: targetRoleTitle,
-          full_name: fullName,
-          email,
-          phone,
-          college,
-          degree,
+          full_name: cleanFullName,
+          email: cleanEmail,
+          phone: cleanPhone,
+          college: cleanCollege,
+          degree: cleanDegree,
           year_of_study: yearOfStudy,
           school_code: selectedSchool?.code || selectedSchoolCode || "A",
           school_name: selectedSchool?.name || "General",
           duration_model: selectedDurationModel,
-          resume_url: resumeUrl,
-          linkedin_url: linkedinUrl,
-          statement_of_purpose: statementOfPurpose,
+          resume_url: cleanResume || null,
+          linkedin_url: cleanLinkedin || null,
+          statement_of_purpose: statementOfPurpose.trim() || null,
         }),
       });
 

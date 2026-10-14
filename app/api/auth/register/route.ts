@@ -1,35 +1,69 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { hashPassword, setAdminSession } from "@/lib/auth";
+import { sanitizeText, sanitizeEmail, containsSqlInjection } from "@/lib/security";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { name, email, password } = body;
 
-    if (!name || typeof name !== "string" || name.trim().length < 2) {
+    if (!name || typeof name !== "string") {
       return NextResponse.json(
-        { error: "Name must be at least 2 characters long." },
+        { error: "Name must be provided as text." },
         { status: 400 }
       );
     }
 
-    if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email || typeof email !== "string") {
+      return NextResponse.json(
+        { error: "Email must be provided as text." },
+        { status: 400 }
+      );
+    }
+
+    if (!password || typeof password !== "string") {
+      return NextResponse.json(
+        { error: "Password must be provided as text." },
+        { status: 400 }
+      );
+    }
+
+    // Check for SQL injection patterns
+    if (
+      containsSqlInjection(name) ||
+      containsSqlInjection(email) ||
+      containsSqlInjection(password)
+    ) {
+      return NextResponse.json(
+        { error: "Suspicious characters or SQL patterns detected." },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize name: strip any HTML tags, control chars, and enforce length
+    const cleanName = sanitizeText(name, 70);
+    if (cleanName.length < 2) {
+      return NextResponse.json(
+        { error: "Name must be between 2 and 70 characters long." },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = sanitizeEmail(email);
+    if (!cleanEmail) {
       return NextResponse.json(
         { error: "Please enter a valid email address." },
         { status: 400 }
       );
     }
 
-    if (!password || typeof password !== "string" || password.length < 6) {
+    if (password.length < 6 || password.length > 100) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters long." },
+        { error: "Password must be between 6 and 100 characters long." },
         { status: 400 }
       );
     }
-
-    const cleanEmail = email.toLowerCase().trim();
-    const cleanName = name.trim();
 
     // Check if email already registered
     const { data: existingAdmin, error: checkError } = await supabase

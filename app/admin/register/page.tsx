@@ -45,18 +45,46 @@ export default function AdminRegisterPage() {
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
-      setError("Please enter your full name.");
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+
+    if (!cleanName || cleanName.length < 2) {
+      setError("Please enter your full name (minimum 2 characters).");
       return;
     }
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+
+    // Client-side XSS & SQL Injection checks
+    if (/[<>'";\0]/.test(cleanName) || /(union\s+select|--|\/\*)/i.test(cleanName)) {
+      setError("Name contains forbidden or suspicious characters.");
+      return;
+    }
+
+    if (!cleanEmail) {
+      setError("Please enter your email address.");
+      return;
+    }
+
+    if (/[<>'";\0]/.test(cleanEmail) || /(union\s+select|--|\/\*)/i.test(cleanEmail)) {
+      setError("Email contains forbidden or suspicious characters.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
       setError("Please enter a valid email address.");
       return;
     }
+
     if (password.length < 6) {
       setError("Password must be at least 6 characters long.");
       return;
     }
+
+    if (password.includes("\0")) {
+      setError("Password contains invalid characters.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -68,7 +96,7 @@ export default function AdminRegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name: cleanName, email: cleanEmail, password }),
       });
 
       const data = await res.json();

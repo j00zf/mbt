@@ -53,6 +53,12 @@ export async function GET(request: Request) {
   }
 }
 
+import {
+  sanitizeText,
+  sanitizePositiveInt,
+  containsSqlInjection,
+} from "@/lib/security";
+
 export async function POST(request: Request) {
   try {
     const session = await getAdminSession();
@@ -63,17 +69,24 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { code, name, description = "", sort_order = 0, is_active = true } = body;
 
-    if (!code?.trim() || !name?.trim()) {
+    if (!code || !name) {
       return NextResponse.json(
         { error: "School code (e.g. 'A') and name are required." },
         { status: 400 }
       );
     }
 
+    if (containsSqlInjection(code) || containsSqlInjection(name) || containsSqlInjection(description)) {
+      return NextResponse.json(
+        { error: "Suspicious characters or SQL syntax detected." },
+        { status: 400 }
+      );
+    }
+
     const payload = {
-      code: code.trim().toUpperCase(),
-      name: name.trim(),
-      description: description?.trim() || null,
+      code: sanitizeText(code, 10).toUpperCase(),
+      name: sanitizeText(name, 100),
+      description: description ? sanitizeText(description, 1000) : null,
       sort_order: Number(sort_order) || 0,
       is_active: Boolean(is_active),
     };
@@ -130,30 +143,39 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, code, name, description, sort_order, is_active } = body;
 
-    if (!id) {
-      return NextResponse.json({ error: "School ID is required." }, { status: 400 });
+    const numericId = sanitizePositiveInt(id);
+    if (!numericId) {
+      return NextResponse.json({ error: "A valid numeric School ID is required." }, { status: 400 });
     }
 
-    const updates: Record<string, any> = {
+    if (
+      (code && containsSqlInjection(code)) ||
+      (name && containsSqlInjection(name)) ||
+      (description && containsSqlInjection(description))
+    ) {
+      return NextResponse.json({ error: "Suspicious characters or SQL syntax detected." }, { status: 400 });
+    }
+
+    const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
-    if (code !== undefined) updates.code = code.trim().toUpperCase();
-    if (name !== undefined) updates.name = name.trim();
-    if (description !== undefined) updates.description = description?.trim() || null;
-    if (sort_order !== undefined) updates.sort_order = Number(sort_order);
+    if (code !== undefined) updates.code = sanitizeText(code, 10).toUpperCase();
+    if (name !== undefined) updates.name = sanitizeText(name, 100);
+    if (description !== undefined) updates.description = description ? sanitizeText(description, 1000) : null;
+    if (sort_order !== undefined) updates.sort_order = Number(sort_order) || 0;
     if (is_active !== undefined) updates.is_active = Boolean(is_active);
 
     // Try Supabase first
     const { data: updatedSchool, error } = await supabase
       .from("programme_schools")
       .update(updates)
-      .eq("id", id)
+      .eq("id", numericId)
       .select("*")
       .single();
 
     if (error) {
       if (error.code === "PGRST205" || error.code === "42P01" || error.message?.includes("does not exist")) {
-        const localUpdated = updateLocalSchool(Number(id), updates);
+        const localUpdated = updateLocalSchool(numericId, updates);
         return NextResponse.json({
           success: true,
           school: localUpdated,
@@ -163,7 +185,7 @@ export async function PUT(request: Request) {
       }
 
       console.error("Supabase update school error:", error);
-      const localUpdated = updateLocalSchool(Number(id), updates);
+      const localUpdated = updateLocalSchool(numericId, updates);
       return NextResponse.json({
         success: true,
         school: localUpdated,
@@ -194,11 +216,10 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
-    if (!id) {
-      return NextResponse.json({ error: "School ID is required." }, { status: 400 });
+    const numericId = sanitizePositiveInt(id);
+    if (!numericId) {
+      return NextResponse.json({ error: "A valid numeric School ID is required." }, { status: 400 });
     }
-
-    const numericId = Number(id);
 
     // Try Supabase first
     const { error } = await supabase.from("programme_schools").delete().eq("id", numericId);

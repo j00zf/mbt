@@ -61,6 +61,17 @@ export async function GET(request: Request) {
   }
 }
 
+import {
+  sanitizeText,
+  sanitizePositiveInt,
+  containsSqlInjection,
+  validateWhitelist,
+} from "@/lib/security";
+
+const VALID_INTERNSHIP_STATUSES = ["active", "draft", "closed"] as const;
+const VALID_WORKPLACE_TYPES = ["Remote", "Hybrid", "Onsite"] as const;
+const VALID_INTERNSHIP_TYPES = ["Full-time", "Part-time"] as const;
+
 export async function POST(request: Request) {
   try {
     const session = await getAdminSession();
@@ -97,41 +108,61 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check for SQL injection attempts
+    if (
+      containsSqlInjection(title) ||
+      containsSqlInjection(description) ||
+      containsSqlInjection(requirements) ||
+      containsSqlInjection(responsibilities) ||
+      containsSqlInjection(target_audience) ||
+      containsSqlInjection(project_focus)
+    ) {
+      return NextResponse.json(
+        { error: "Suspicious characters or SQL syntax detected." },
+        { status: 400 }
+      );
+    }
+
+    const cleanTitle = sanitizeText(title, 200);
+    const cleanSchoolCode = sanitizeText(school_code, 10).toUpperCase();
+    const cleanDurationModel = sanitizeText(duration_model, 100);
+    const cleanDescription = sanitizeText(description, 5000);
+
     const resolvedSchoolName =
-      school_name ||
-      MBT_SCHOOLS.find((s) => s.code === school_code)?.name ||
+      sanitizeText(school_name, 100) ||
+      MBT_SCHOOLS.find((s) => s.code === cleanSchoolCode)?.name ||
       "General Discipline";
 
     const skillsArray = Array.isArray(skills)
-      ? skills.map((s: unknown) => String(s).trim()).filter(Boolean)
+      ? skills.map((s: unknown) => sanitizeText(s, 50)).filter(Boolean)
       : typeof skills === "string" && skills.trim()
-      ? skills.split(",").map((s) => s.trim()).filter(Boolean)
+      ? skills.split(",").map((s) => sanitizeText(s, 50)).filter(Boolean)
       : [];
 
     const formattedDeadline =
       deadline && String(deadline).trim()
-        ? String(deadline).trim().substring(0, 10)
+        ? sanitizeText(String(deadline).trim().substring(0, 10), 10)
         : null;
 
     const payload = {
-      title: title.trim(),
-      school_code: school_code.trim().toUpperCase(),
-      school_name: resolvedSchoolName.trim(),
-      duration_model: duration_model.trim(),
-      duration_hours_months: duration_hours_months?.trim() || "120 hrs",
-      target_audience: target_audience?.trim() || null,
-      project_focus: project_focus?.trim() || null,
-      location: location?.trim() || "Remote",
-      workplace_type: workplace_type || "Remote",
-      internship_type: internship_type || "Full-time",
-      stipend: stipend?.trim() || "Unpaid",
-      openings: parseInt(String(openings), 10) || 1,
-      description: description.trim(),
-      requirements: requirements?.trim() || null,
-      responsibilities: responsibilities?.trim() || null,
+      title: cleanTitle,
+      school_code: cleanSchoolCode,
+      school_name: resolvedSchoolName,
+      duration_model: cleanDurationModel,
+      duration_hours_months: sanitizeText(duration_hours_months, 50) || "120 hrs",
+      target_audience: target_audience ? sanitizeText(target_audience, 200) : null,
+      project_focus: project_focus ? sanitizeText(project_focus, 200) : null,
+      location: sanitizeText(location, 100) || "Remote",
+      workplace_type: validateWhitelist(workplace_type, VALID_WORKPLACE_TYPES, "Remote"),
+      internship_type: validateWhitelist(internship_type, VALID_INTERNSHIP_TYPES, "Full-time"),
+      stipend: sanitizeText(stipend, 100) || "Unpaid",
+      openings: sanitizePositiveInt(openings) || 1,
+      description: cleanDescription,
+      requirements: requirements ? sanitizeText(requirements, 3000) : null,
+      responsibilities: responsibilities ? sanitizeText(responsibilities, 3000) : null,
       skills: skillsArray.length > 0 ? skillsArray : null,
       deadline: formattedDeadline,
-      status: status || "active",
+      status: validateWhitelist(status, VALID_INTERNSHIP_STATUSES, "active"),
       created_by: session.id ? Number(session.id) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -189,45 +220,54 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, ...fields } = body;
 
-    if (!id && id !== 0) {
-      return NextResponse.json({ error: "Internship ID is required." }, { status: 400 });
+    const numericId = sanitizePositiveInt(id);
+    if (!numericId) {
+      return NextResponse.json({ error: "A valid numeric Internship ID is required." }, { status: 400 });
     }
 
-    const numericId = Number(id);
+    // Check for SQL injection in updated text fields
+    if (
+      (fields.title && containsSqlInjection(fields.title)) ||
+      (fields.description && containsSqlInjection(fields.description)) ||
+      (fields.requirements && containsSqlInjection(fields.requirements)) ||
+      (fields.responsibilities && containsSqlInjection(fields.responsibilities))
+    ) {
+      return NextResponse.json({ error: "Suspicious characters or SQL syntax detected." }, { status: 400 });
+    }
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
-    if (fields.title !== undefined) updates.title = fields.title.trim();
-    if (fields.school_code !== undefined) updates.school_code = fields.school_code.trim().toUpperCase();
-    if (fields.school_name !== undefined) updates.school_name = fields.school_name.trim();
-    if (fields.duration_model !== undefined) updates.duration_model = fields.duration_model.trim();
-    if (fields.duration_hours_months !== undefined) updates.duration_hours_months = fields.duration_hours_months.trim();
-    if (fields.target_audience !== undefined) updates.target_audience = fields.target_audience?.trim() || null;
-    if (fields.project_focus !== undefined) updates.project_focus = fields.project_focus?.trim() || null;
-    if (fields.location !== undefined) updates.location = fields.location?.trim() || "Remote";
-    if (fields.workplace_type !== undefined) updates.workplace_type = fields.workplace_type;
-    if (fields.internship_type !== undefined) updates.internship_type = fields.internship_type;
-    if (fields.stipend !== undefined) updates.stipend = fields.stipend?.trim() || "Unpaid";
-    if (fields.openings !== undefined) updates.openings = parseInt(String(fields.openings), 10) || 1;
-    if (fields.description !== undefined) updates.description = fields.description.trim();
-    if (fields.requirements !== undefined) updates.requirements = fields.requirements?.trim() || null;
-    if (fields.responsibilities !== undefined) updates.responsibilities = fields.responsibilities?.trim() || null;
-    if (fields.status !== undefined) updates.status = fields.status;
+    if (fields.title !== undefined) updates.title = sanitizeText(fields.title, 200);
+    if (fields.school_code !== undefined) updates.school_code = sanitizeText(fields.school_code, 10).toUpperCase();
+    if (fields.school_name !== undefined) updates.school_name = sanitizeText(fields.school_name, 100);
+    if (fields.duration_model !== undefined) updates.duration_model = sanitizeText(fields.duration_model, 100);
+    if (fields.duration_hours_months !== undefined) updates.duration_hours_months = sanitizeText(fields.duration_hours_months, 50);
+    if (fields.target_audience !== undefined) updates.target_audience = fields.target_audience ? sanitizeText(fields.target_audience, 200) : null;
+    if (fields.project_focus !== undefined) updates.project_focus = fields.project_focus ? sanitizeText(fields.project_focus, 200) : null;
+    if (fields.location !== undefined) updates.location = sanitizeText(fields.location, 100) || "Remote";
+    if (fields.workplace_type !== undefined) updates.workplace_type = validateWhitelist(fields.workplace_type, VALID_WORKPLACE_TYPES, "Remote");
+    if (fields.internship_type !== undefined) updates.internship_type = validateWhitelist(fields.internship_type, VALID_INTERNSHIP_TYPES, "Full-time");
+    if (fields.stipend !== undefined) updates.stipend = sanitizeText(fields.stipend, 100) || "Unpaid";
+    if (fields.openings !== undefined) updates.openings = sanitizePositiveInt(fields.openings) || 1;
+    if (fields.description !== undefined) updates.description = sanitizeText(fields.description, 5000);
+    if (fields.requirements !== undefined) updates.requirements = fields.requirements ? sanitizeText(fields.requirements, 3000) : null;
+    if (fields.responsibilities !== undefined) updates.responsibilities = fields.responsibilities ? sanitizeText(fields.responsibilities, 3000) : null;
+    if (fields.status !== undefined) updates.status = validateWhitelist(fields.status, VALID_INTERNSHIP_STATUSES, "active");
 
     if (fields.deadline !== undefined) {
       updates.deadline =
         fields.deadline && String(fields.deadline).trim()
-          ? String(fields.deadline).trim().substring(0, 10)
+          ? sanitizeText(String(fields.deadline).trim().substring(0, 10), 10)
           : null;
     }
 
     if (fields.skills !== undefined) {
       const skillsArray = Array.isArray(fields.skills)
-        ? fields.skills.map((s: unknown) => String(s).trim()).filter(Boolean)
+        ? fields.skills.map((s: unknown) => sanitizeText(s, 50)).filter(Boolean)
         : typeof fields.skills === "string" && fields.skills.trim()
-        ? fields.skills.split(",").map((s: string) => s.trim()).filter(Boolean)
+        ? fields.skills.split(",").map((s: string) => sanitizeText(s, 50)).filter(Boolean)
         : [];
       updates.skills = skillsArray.length > 0 ? skillsArray : null;
     }
@@ -288,11 +328,10 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
-    if (!id && id !== "0") {
-      return NextResponse.json({ error: "Internship ID is required." }, { status: 400 });
+    const numericId = sanitizePositiveInt(id);
+    if (!numericId) {
+      return NextResponse.json({ error: "A valid numeric Internship ID is required." }, { status: 400 });
     }
-
-    const numericId = Number(id);
 
     const { error } = await supabaseAdmin.from("internships").delete().eq("id", numericId);
 

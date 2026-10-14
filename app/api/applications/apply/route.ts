@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabase, MBT_SCHOOLS } from "@/lib/supabase";
 import { sendApplicationConfirmationEmail } from "@/lib/mailer";
+import {
+  sanitizeText,
+  sanitizeEmail,
+  sanitizePhone,
+  sanitizeUrl,
+  sanitizePositiveInt,
+  containsSqlInjection,
+} from "@/lib/security";
 
 export async function POST(request: Request) {
   try {
@@ -22,44 +30,105 @@ export async function POST(request: Request) {
       statement_of_purpose = "",
     } = body;
 
-    // Field validations
-    if (!full_name?.trim()) {
-      return NextResponse.json({ error: "Please enter your full name." }, { status: 400 });
+    // Detect potential SQL injection payload in inputs
+    if (
+      containsSqlInjection(full_name) ||
+      containsSqlInjection(email) ||
+      containsSqlInjection(phone) ||
+      containsSqlInjection(college) ||
+      containsSqlInjection(degree) ||
+      containsSqlInjection(statement_of_purpose)
+    ) {
+      return NextResponse.json(
+        { error: "Suspicious characters or SQL syntax detected in application input." },
+        { status: 400 }
+      );
     }
-    if (!email?.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+
+    // Sanitize and validate Name
+    const cleanFullName = sanitizeText(full_name, 100);
+    if (!cleanFullName || cleanFullName.length < 2) {
+      return NextResponse.json({ error: "Please enter your valid full name." }, { status: 400 });
+    }
+
+    // Sanitize and validate Email
+    const cleanEmail = sanitizeEmail(email);
+    if (!cleanEmail) {
       return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
     }
-    if (!phone?.trim()) {
-      return NextResponse.json({ error: "Please enter your contact phone number." }, { status: 400 });
+
+    // Sanitize and validate Phone
+    const cleanPhone = sanitizePhone(phone);
+    if (!cleanPhone) {
+      return NextResponse.json(
+        { error: "Please enter a valid contact phone number (7-20 digits)." },
+        { status: 400 }
+      );
     }
-    if (!college?.trim()) {
+
+    // Sanitize academic fields
+    const cleanCollege = sanitizeText(college, 150);
+    if (!cleanCollege || cleanCollege.length < 2) {
       return NextResponse.json({ error: "Please enter your college or university name." }, { status: 400 });
     }
-    if (!degree?.trim()) {
+
+    const cleanDegree = sanitizeText(degree, 100);
+    if (!cleanDegree || cleanDegree.length < 2) {
       return NextResponse.json({ error: "Please enter your degree or course of study." }, { status: 400 });
     }
 
-    // Resolve school name
-    let resolvedSchoolName = school_name;
-    if (!resolvedSchoolName && school_code) {
-      const match = MBT_SCHOOLS.find((s) => s.code === school_code);
+    const cleanYear = sanitizeText(year_of_study, 50) || "Final Year";
+    const cleanSop = sanitizeText(statement_of_purpose, 3000);
+
+    // Validate URLs to eliminate XSS (reject javascript:, data:, etc.)
+    let cleanResumeUrl: string | null = null;
+    if (resume_url && typeof resume_url === "string" && resume_url.trim()) {
+      cleanResumeUrl = sanitizeUrl(resume_url);
+      if (!cleanResumeUrl) {
+        return NextResponse.json(
+          { error: "Resume URL must be a valid web link starting with http:// or https://" },
+          { status: 400 }
+        );
+      }
+    }
+
+    let cleanLinkedinUrl: string | null = null;
+    if (linkedin_url && typeof linkedin_url === "string" && linkedin_url.trim()) {
+      cleanLinkedinUrl = sanitizeUrl(linkedin_url);
+      if (!cleanLinkedinUrl) {
+        return NextResponse.json(
+          { error: "LinkedIn URL must be a valid web link starting with http:// or https://" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const cleanSchoolCode = sanitizeText(school_code, 10).toUpperCase() || "A";
+
+    // Resolve school name safely
+    let resolvedSchoolName = sanitizeText(school_name, 100);
+    if (!resolvedSchoolName && cleanSchoolCode) {
+      const match = MBT_SCHOOLS.find((s) => s.code === cleanSchoolCode);
       if (match) resolvedSchoolName = match.name;
     }
     if (!resolvedSchoolName) {
       resolvedSchoolName = "General / Multi-Disciplinary";
     }
 
+    const cleanDurationModel = sanitizeText(duration_model, 100) || "Model B - Standard";
+    const cleanInternshipId = sanitizePositiveInt(internship_id);
+
     // Attempt to resolve role title if not passed
-    let resolvedRoleTitle = role_title;
-    if (!resolvedRoleTitle && internship_id) {
+    let resolvedRoleTitle = role_title ? sanitizeText(role_title, 150) : null;
+    if (!resolvedRoleTitle && cleanInternshipId) {
       try {
         const { data: roleData } = await supabase
           .from("internships")
           .select("title")
-          .eq("id", Number(internship_id))
+          .eq("id", cleanInternshipId)
           .maybeSingle();
         if (roleData?.title) {
-          resolvedRoleTitle = roleData.title;
+          resolvedRoleTitle = sanitizeText(roleData.title, 150);
         }
       } catch (err) {
         console.warn("Could not fetch internship title for email:", err);
@@ -67,19 +136,19 @@ export async function POST(request: Request) {
     }
 
     const payload = {
-      internship_id: internship_id ? Number(internship_id) : null,
-      full_name: full_name.trim(),
-      email: email.toLowerCase().trim(),
-      phone: phone.trim(),
-      college: college.trim(),
-      degree: degree.trim(),
-      year_of_study: year_of_study.trim(),
-      school_code: (school_code || "A").trim().toUpperCase(),
+      internship_id: cleanInternshipId,
+      full_name: cleanFullName,
+      email: cleanEmail,
+      phone: cleanPhone,
+      college: cleanCollege,
+      degree: cleanDegree,
+      year_of_study: cleanYear,
+      school_code: cleanSchoolCode,
       school_name: resolvedSchoolName,
-      duration_model: duration_model || "Model B - Standard",
-      resume_url: resume_url?.trim() || null,
-      linkedin_url: linkedin_url?.trim() || null,
-      statement_of_purpose: statement_of_purpose?.trim() || null,
+      duration_model: cleanDurationModel,
+      resume_url: cleanResumeUrl,
+      linkedin_url: cleanLinkedinUrl,
+      statement_of_purpose: cleanSop || null,
       status: "pending",
       notes: null,
       created_at: new Date().toISOString(),

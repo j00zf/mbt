@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { verifyPassword, setAdminSession } from "@/lib/auth";
+import { sanitizeEmail, containsSqlInjection } from "@/lib/security";
 
 export async function POST(request: Request) {
   try {
@@ -14,9 +15,36 @@ export async function POST(request: Request) {
       );
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    if (typeof email !== "string" || typeof password !== "string") {
+      return NextResponse.json(
+        { error: "Invalid credential payload." },
+        { status: 400 }
+      );
+    }
 
-    // Query admin by email
+    // Check for null bytes or SQL injection attempts
+    if (containsSqlInjection(email) || containsSqlInjection(password)) {
+      return NextResponse.json(
+        { error: "Suspicious characters or SQL patterns detected." },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = sanitizeEmail(email);
+    if (!cleanEmail) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address." },
+        { status: 400 }
+      );
+    }
+
+    if (password.length > 128) {
+      return NextResponse.json(
+        { error: "Password exceeds maximum permitted length." },
+        { status: 400 }
+      );
+    }
+
     // Query admin by email (attempting to select status if column exists)
     let admin: { id: number; name: string; email: string; password: string; status?: string; created_at: string } | null = null;
     const { data: adminWithStatus, error: queryError } = await supabase
