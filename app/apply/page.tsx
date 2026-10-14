@@ -40,7 +40,7 @@ export default function StudentApplyPage() {
   const [phone, setPhone] = useState("");
   const [college, setCollege] = useState("");
   const [degree, setDegree] = useState("");
-  const [yearOfStudy, setYearOfStudy] = useState("3rd Year / Penultimate Year");
+  const [yearOfStudy, setYearOfStudy] = useState("");
   const [selectedSchoolCode, setSelectedSchoolCode] = useState("B");
   const [selectedDurationModel, setSelectedDurationModel] = useState("Model B - Standard");
   const [resumeUrl, setResumeUrl] = useState("");
@@ -172,8 +172,8 @@ export default function StudentApplyPage() {
     const cleanResume = resumeUrl.trim();
     const cleanLinkedin = linkedinUrl.trim();
 
-    if (!cleanFullName || !cleanEmail || !cleanPhone || !cleanCollege || !cleanDegree) {
-      setError("Please fill in all required personal and academic information.");
+    if (!cleanFullName || !cleanEmail || !cleanPhone || !cleanCollege || !cleanDegree || !yearOfStudy) {
+      setError("Please fill in all required personal and academic information, including your current year of study.");
       return;
     }
 
@@ -525,14 +525,16 @@ export default function StudentApplyPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700  tracking-wider mb-1.5">
+                    <label className="block font-semibold text-slate-700 tracking-wider mb-1.5">
                       Current Year of Study *
                     </label>
                     <select
+                      required
                       value={yearOfStudy}
                       onChange={(e) => setYearOfStudy(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-600 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 outline-none cursor-pointer"
                     >
+                      <option value="" disabled>Select Year of Study *</option>
                       <option value="1st Year">1st Year Undergraduate</option>
                       <option value="2nd Year">2nd Year Undergraduate</option>
                       <option value="3rd Year">3rd Year Undergraduate</option>

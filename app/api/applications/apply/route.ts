@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       phone,
       college,
       degree,
-      year_of_study = "Final Year",
+      year_of_study,
       school_code,
       school_name,
       duration_model,
@@ -77,7 +77,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Please enter your degree or course of study." }, { status: 400 });
     }
 
-    const cleanYear = sanitizeText(year_of_study, 50) || "Final Year";
+    const cleanYear = sanitizeText(year_of_study, 50);
+    if (!cleanYear) {
+      return NextResponse.json(
+        { error: "Please select your current year of study." },
+        { status: 400 }
+      );
+    }
     const cleanSop = sanitizeText(statement_of_purpose, 3000);
 
     // Validate URLs to eliminate XSS (reject javascript:, data:, etc.)
