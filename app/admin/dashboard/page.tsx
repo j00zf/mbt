@@ -61,6 +61,7 @@ interface AdminRecord {
   id: number;
   name: string;
   email: string;
+  phone?: string | null;
   status?: string;
   created_at: string;
 }
@@ -462,13 +463,15 @@ create policy "Allow all operations for duration_models" on public.duration_mode
   name text not null,
   email text not null,
   password text not null,
+  phone text null,
   status text not null default 'inactive'::text, -- 'active' or 'inactive'
   created_at timestamp with time zone null default timezone ('utc'::text, now()),
   constraint admins_pkey primary key (id),
   constraint admins_email_key unique (email)
 ) TABLESPACE pg_default;
 
--- Migration to add status column to existing admins table:
+-- Migration to add phone and status columns to existing admins table:
+alter table public.admins add column if not exists phone text;
 alter table public.admins add column if not exists status text not null default 'inactive'::text;
 
 -- Activate existing administrators:
@@ -3223,6 +3226,12 @@ create policy "Allow all operations for admins" on public.admins for all using (
                                   <Mail className="w-3.5 h-3.5 text-slate-400" />
                                   {admin.email}
                                 </span>
+                                {admin.phone && (
+                                  <span className="flex items-center gap-1 text-slate-700 font-semibold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                                    <Phone className="w-3 h-3 text-emerald-600" />
+                                    {admin.phone}
+                                  </span>
+                                )}
                                 {admin.created_at && (
                                   <span className="flex items-center gap-1 text-[11px] text-slate-400 font-sans">
                                     <Clock className="w-3 h-3 text-slate-400" />
@@ -3301,7 +3310,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        `alter table public.admins add column if not exists status text not null default 'inactive'::text;\nupdate public.admins set status = 'active' where status is null;`
+                        `alter table public.admins add column if not exists phone text;\nalter table public.admins add column if not exists status text not null default 'inactive'::text;\nupdate public.admins set status = 'active' where status is null;`
                       );
                       setCopiedAdminSql(true);
                       setTimeout(() => setCopiedAdminSql(false), 2000);
@@ -3320,7 +3329,8 @@ create policy "Allow all operations for admins" on public.admins for all using (
                   </button>
                 </div>
                 <pre className="bg-slate-950 p-3.5 rounded-xl text-[11px] font-mono text-emerald-300 overflow-x-auto border border-slate-800/80 leading-relaxed">
-                  {`-- Add status column with default 'inactive'
+                  {`-- Add phone and status columns
+alter table public.admins add column if not exists phone text;
 alter table public.admins add column if not exists status text not null default 'inactive'::text;
 
 -- Activate existing legacy administrators so they retain access

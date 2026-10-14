@@ -12,15 +12,33 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Attempt to query with status
+    // Attempt to query with phone and status
     const { data: admins, error } = await supabase
       .from("admins")
-      .select("id, name, email, status, created_at")
+      .select("id, name, email, phone, status, created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
-      if (error.code === "PGRST204" || error.message?.includes("status")) {
-        // Fallback for legacy schema without status column
+      if (error.code === "PGRST204" || error.message?.includes("phone") || error.message?.includes("status")) {
+        // Fallback: try with status only
+        const { data: statusAdmins, error: statusErr } = await supabase
+          .from("admins")
+          .select("id, name, email, status, created_at")
+          .order("created_at", { ascending: false });
+
+        if (!statusErr && statusAdmins) {
+          const normalized = statusAdmins.map((a) => ({
+            ...a,
+            phone: null,
+            status: a.status || "active",
+          }));
+          return NextResponse.json(
+            { admins: normalized, phoneColumnMissing: true },
+            { headers: { "Cache-Control": "no-store, max-age=0" } }
+          );
+        }
+
+        // Fallback for legacy schema without status or phone column
         const { data: legacyAdmins, error: legacyErr } = await supabase
           .from("admins")
           .select("id, name, email, created_at")
@@ -33,10 +51,11 @@ export async function GET() {
 
         const normalized = (legacyAdmins || []).map((a) => ({
           ...a,
+          phone: null,
           status: "active",
         }));
         return NextResponse.json(
-          { admins: normalized, statusColumnMissing: true },
+          { admins: normalized, statusColumnMissing: true, phoneColumnMissing: true },
           { headers: { "Cache-Control": "no-store, max-age=0" } }
         );
       }
@@ -50,11 +69,12 @@ export async function GET() {
 
     const normalized = (admins || []).map((a) => ({
       ...a,
+      phone: (a as any).phone || null,
       status: a.status || "active",
     }));
 
     return NextResponse.json(
-      { admins: normalized, statusColumnMissing: false },
+      { admins: normalized, statusColumnMissing: false, phoneColumnMissing: false },
       { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   } catch (err: unknown) {

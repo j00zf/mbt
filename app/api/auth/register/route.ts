@@ -1,12 +1,44 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { hashPassword, setAdminSession } from "@/lib/auth";
-import { sanitizeText, sanitizeEmail, containsSqlInjection } from "@/lib/security";
+import { hashPassword } from "@/lib/auth";
+import {
+  sanitizeText,
+  sanitizeEmail,
+  containsSqlInjection,
+  isAuthorizedAdminPhone,
+} from "@/lib/security";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, password } = body;
+    const { name, email, password, phone } = body;
+
+    // Validate phone number presence and authorization
+    if (!phone || typeof phone !== "string") {
+      return NextResponse.json(
+        { error: "Phone number is required for administrator registration." },
+        { status: 400 }
+      );
+    }
+
+    if (containsSqlInjection(phone)) {
+      return NextResponse.json(
+        { error: "Invalid characters detected in phone number." },
+        { status: 400 }
+      );
+    }
+
+    // Verify on server side against secure environment variable and database
+    const { authorized, normalizedPhone } = await isAuthorizedAdminPhone(phone);
+    if (!authorized) {
+      return NextResponse.json(
+        {
+          error:
+            "Access Denied: This phone number is not authorized for administrator registration.",
+        },
+        { status: 403 }
+      );
+    }
 
     if (!name || typeof name !== "string") {
       return NextResponse.json(
@@ -93,48 +125,105 @@ export async function POST(request: Request) {
     // Hash the password securely
     const hashedPassword = await hashPassword(password);
 
-    // Insert new admin with default status 'inactive'
-    let newAdmin: { id: number; name: string; email: string; status?: string; created_at: string } | null = null;
-    const { data: insertedWithStatus, error: insertError } = await supabase
+    // Insert new admin with phone and default status 'inactive'
+    let newAdmin: {
+      id: number;
+      name: string;
+      email: string;
+      phone?: string | null;
+      status?: string;
+      created_at: string;
+    } | null = null;
+
+    // Primary attempt: insert with both phone and status
+    const { data: insertedFull, error: insertError } = await supabase
       .from("admins")
       .insert([
         {
           name: cleanName,
           email: cleanEmail,
           password: hashedPassword,
+          phone: normalizedPhone,
           status: "inactive",
         },
       ])
-      .select("id, name, email, status, created_at")
+      .select("id, name, email, phone, status, created_at")
       .single();
 
     if (insertError) {
-      // If 'status' column does not exist yet in schema (PGRST204), fallback to inserting without status
-      if (insertError.code === "PGRST204" || insertError.message?.includes("status")) {
-        console.warn("Status column not found on admins table, inserting without status:", insertError.message);
-        const { data: fallbackAdmin, error: fallbackError } = await supabase
+      console.warn("Full insert failed, attempting schema-compatible fallbacks:", insertError.message);
+
+      // Fallback 1: 'phone' column missing, insert with status only
+      if (insertError.code === "PGRST204" || insertError.message?.includes("phone")) {
+        const { data: insertedWithoutPhone, error: noPhoneErr } = await supabase
           .from("admins")
           .insert([
             {
               name: cleanName,
               email: cleanEmail,
               password: hashedPassword,
+              status: "inactive",
             },
           ])
-          .select("id, name, email, created_at")
+          .select("id, name, email, status, created_at")
           .single();
 
-        if (fallbackError) {
-          console.error("Supabase fallback insert error:", fallbackError);
-          return NextResponse.json(
+        if (noPhoneErr) {
+          // Fallback 2: both phone and status columns missing
+          if (noPhoneErr.code === "PGRST204" || noPhoneErr.message?.includes("status")) {
+            const { data: legacyAdmin, error: legacyErr } = await supabase
+              .from("admins")
+              .insert([
+                {
+                  name: cleanName,
+                  email: cleanEmail,
+                  password: hashedPassword,
+                },
+              ])
+              .select("id, name, email, created_at")
+              .single();
+
+            if (legacyErr) {
+              console.error("Supabase legacy insert error:", legacyErr);
+              return NextResponse.json(
+                { error: legacyErr.message || "Failed to create admin record." },
+                { status: 500 }
+              );
+            }
+            newAdmin = { ...legacyAdmin, phone: normalizedPhone, status: "inactive" };
+          } else {
+            console.error("Supabase insert without phone error:", noPhoneErr);
+            return NextResponse.json(
+              { error: noPhoneErr.message || "Failed to create admin record." },
+              { status: 500 }
+            );
+          }
+        } else {
+          newAdmin = { ...insertedWithoutPhone, phone: normalizedPhone };
+        }
+      } else if (insertError.message?.includes("status")) {
+        // Fallback 3: 'status' column missing, try with phone only
+        const { data: withPhoneOnly, error: withPhoneErr } = await supabase
+          .from("admins")
+          .insert([
             {
-              error: fallbackError.message || "Failed to create admin record.",
-              details: fallbackError,
+              name: cleanName,
+              email: cleanEmail,
+              password: hashedPassword,
+              phone: normalizedPhone,
             },
+          ])
+          .select("id, name, email, phone, created_at")
+          .single();
+
+        if (withPhoneErr) {
+          console.error("Supabase insert error:", withPhoneErr);
+          return NextResponse.json(
+            { error: withPhoneErr.message || "Failed to create admin record." },
             { status: 500 }
           );
         }
-        newAdmin = { ...fallbackAdmin, status: "inactive" };
+        newAdmin = { ...withPhoneOnly, status: "inactive" };
       } else {
         console.error("Supabase insert error:", insertError);
         return NextResponse.json(
@@ -146,11 +235,8 @@ export async function POST(request: Request) {
         );
       }
     } else {
-      newAdmin = insertedWithStatus;
+      newAdmin = insertedFull;
     }
-
-    // Notice: We do NOT call setAdminSession here because the newly registered admin
-    // has status 'inactive' and must be approved/activated by another active admin first!
 
     return NextResponse.json({
       success: true,
@@ -161,6 +247,7 @@ export async function POST(request: Request) {
         id: newAdmin.id,
         name: newAdmin.name,
         email: newAdmin.email,
+        phone: newAdmin.phone || normalizedPhone,
         status: newAdmin.status || "inactive",
         created_at: newAdmin.created_at,
       },

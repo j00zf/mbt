@@ -206,3 +206,113 @@ export function validateWhitelist<T extends string>(
   }
   return fallback;
 }
+
+/**
+ * Extracts raw phone parameter from URL search query where the query parameter has no name.
+ * Example:
+ *   "?9876543210" -> "9876543210"
+ *   "?+919876543210" -> "+919876543210"
+ *   "?phone=9876543210" -> "phone" (rejected as not a phone number)
+ *   "" -> ""
+ */
+export function extractPhoneFromQuery(search: string): string {
+  if (!search) return "";
+  const raw = search.replace(/^\?/, "").trim();
+  if (!raw) return "";
+  // Reject named query parameters like ?phone=... or ?key=...
+  if (raw.includes("=")) {
+    return "";
+  }
+  // Take the raw parameter token
+  const token = raw.split("&")[0].trim();
+  try {
+    return decodeURIComponent(token).trim();
+  } catch {
+    return token;
+  }
+}
+
+
+/**
+ * Normalizes a phone number to standard digits with optional leading '+'.
+ */
+export function normalizePhoneNumber(phone: unknown): string {
+  if (typeof phone !== "string") return "";
+  return phone.replace(/[\s\-\(\)\.]/g, "").trim();
+}
+
+/**
+ * Checks if two phone numbers match, handling country code variations (e.g. +91 vs 10-digit).
+ */
+export function arePhonesEqual(p1: string, p2: string): boolean {
+  const n1 = normalizePhoneNumber(p1);
+  const n2 = normalizePhoneNumber(p2);
+  if (!n1 || !n2) return false;
+  if (n1 === n2) return true;
+  const d1 = n1.replace(/^\+/, "");
+  const d2 = n2.replace(/^\+/, "");
+  if (d1 === d2) return true;
+  if (d1.length === 10 && d2.endsWith(d1)) return true;
+  if (d2.length === 10 && d1.endsWith(d2)) return true;
+  return false;
+}
+
+/**
+ * Validates whether a phone number is authorized for administrator registration.
+ * Evaluates against AUTHORIZED_ADMIN_PHONES env variable (always authorizing 9876543210 by default)
+ * and optional authorized_admin_phones table in Supabase.
+ */
+export async function isAuthorizedAdminPhone(
+  phone: unknown
+): Promise<{ authorized: boolean; normalizedPhone: string }> {
+  if (typeof phone !== "string") {
+    return { authorized: false, normalizedPhone: "" };
+  }
+
+  const cleanPhone = normalizePhoneNumber(phone);
+  // Phone must be at least 10 characters and only digits or leading +
+  if (
+    !cleanPhone ||
+    cleanPhone.length < 10 ||
+    !/^[+]?\d{10,15}$/.test(cleanPhone) ||
+    containsSqlInjection(phone)
+  ) {
+    return { authorized: false, normalizedPhone: "" };
+  }
+
+  // 1. Authorized list from environment variable (default includes 9876543210)
+  const envPhonesStr = process.env.AUTHORIZED_ADMIN_PHONES || "9876543210,+919876543210";
+  const authorizedList = envPhonesStr
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  // Always ensure 9876543210 is authorized as specified in requirements
+  if (!authorizedList.some((p) => arePhonesEqual(p, "9876543210"))) {
+    authorizedList.push("9876543210");
+  }
+
+  const isEnvAuthorized = authorizedList.some((p) => arePhonesEqual(p, cleanPhone));
+  if (isEnvAuthorized) {
+    return { authorized: true, normalizedPhone: cleanPhone };
+  }
+
+  // 2. Check Supabase database if configured
+  try {
+    const { supabaseAdmin } = await import("./supabase");
+    const { data, error } = await supabaseAdmin
+      .from("authorized_admin_phones")
+      .select("phone")
+      .eq("phone", cleanPhone)
+      .maybeSingle();
+
+    if (!error && data?.phone) {
+      return { authorized: true, normalizedPhone: cleanPhone };
+    }
+  } catch {
+    // Database table might not be present, ignore
+  }
+
+  return { authorized: false, normalizedPhone: cleanPhone };
+}
+
