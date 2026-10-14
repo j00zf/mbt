@@ -75,7 +75,7 @@ export default function AdminRegisterPage() {
           setAuthState("unauthorized");
           setAuthError(
             data.error ||
-              "Access Denied: The telephone number in this link is not authorized for administrator registration."
+            "Access Denied: The telephone number in this link is not authorized for administrator registration."
           );
         }
       } catch {
@@ -239,40 +239,13 @@ export default function AdminRegisterPage() {
               403 Forbidden &bull; Authorization Required
             </p>
 
-            <div className="my-6 p-4 rounded-2xl bg-rose-50/70 border border-rose-100 text-left text-xs text-rose-900 leading-relaxed">
-              <p className="font-semibold text-rose-950 mb-1 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                Invitation Verification Failed
-              </p>
-              {authError}
-            </div>
 
-            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-              Administrator registration requires an authorized invite URL with your pre-approved telephone number. If you are an authorized MBT staff member, please request a valid registration link from your system administrator.
-            </p>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <Link
-                href="/"
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <Home className="w-4 h-4" />
-                Return to Home
-              </Link>
-              <Link
-                href="/admin/login"
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-600/20 cursor-pointer"
-              >
-                <LogIn className="w-4 h-4" />
-                Admin Sign In
-              </Link>
-            </div>
+
+
           </div>
 
-          {/* Security footnote */}
-          <div className="mt-6 text-center text-xs text-slate-400">
-            MBT Security Gate &bull; Parameter-Free Authorization Protocol
-          </div>
+
         </div>
       </div>
     );
@@ -448,12 +421,12 @@ export default function AdminRegisterPage() {
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                     <div
                       className={`h-full transition-all duration-300 ${strength <= 25
-                          ? "w-1/4 bg-rose-500"
-                          : strength <= 50
-                            ? "w-2/4 bg-amber-500"
-                            : strength <= 75
-                              ? "w-3/4 bg-blue-500"
-                              : "w-full bg-emerald-500"
+                        ? "w-1/4 bg-rose-500"
+                        : strength <= 50
+                          ? "w-2/4 bg-amber-500"
+                          : strength <= 75
+                            ? "w-3/4 bg-blue-500"
+                            : "w-full bg-emerald-500"
                         }`}
                     />
                   </div>

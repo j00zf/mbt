@@ -302,17 +302,46 @@ export async function isAuthorizedAdminPhone(
     const { supabaseAdmin } = await import("./supabase");
     const { data, error } = await supabaseAdmin
       .from("authorized_admin_phones")
-      .select("phone")
-      .eq("phone", cleanPhone)
-      .maybeSingle();
+      .select("phone");
 
-    if (!error && data?.phone) {
-      return { authorized: true, normalizedPhone: cleanPhone };
+    if (!error && Array.isArray(data)) {
+      const isDbAuthorized = data.some((row: { phone?: string }) =>
+        row.phone ? arePhonesEqual(row.phone, cleanPhone) : false
+      );
+      if (isDbAuthorized) {
+        return { authorized: true, normalizedPhone: cleanPhone };
+      }
     }
   } catch {
     // Database table might not be present, ignore
   }
 
+  // 3. Check persistent storage fallback file (data/authorized_admin_phones.json)
+  if (typeof window === "undefined") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require("fs");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require("path");
+      const filePath = path.join(process.cwd(), "data", "authorized_admin_phones.json");
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, "utf-8");
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const isFileAuthorized = list.some((item: any) =>
+            item && (item.phone ? arePhonesEqual(item.phone, cleanPhone) : arePhonesEqual(item, cleanPhone))
+          );
+          if (isFileAuthorized) {
+            return { authorized: true, normalizedPhone: cleanPhone };
+          }
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
   return { authorized: false, normalizedPhone: cleanPhone };
 }
+
 
