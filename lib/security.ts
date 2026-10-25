@@ -258,9 +258,68 @@ export function arePhonesEqual(p1: string, p2: string): boolean {
 }
 
 /**
+ * Retrieves authorized admin phone numbers from environment variables,
+ * dynamically inspecting .env.local and .env files on disk if available.
+ */
+export function getEnvAuthorizedPhones(): string[] {
+  const set = new Set<string>();
+
+  // 1. Check process.env.AUTHORIZED_ADMIN_PHONES
+  const envVal = process.env.AUTHORIZED_ADMIN_PHONES;
+  if (envVal) {
+    envVal
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .forEach((p) => set.add(p));
+  }
+
+  // 2. Read .env.local and .env directly from disk to detect newly added numbers without restart
+  if (typeof window === "undefined") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require("fs");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require("path");
+      const envFiles = [
+        path.join(process.cwd(), ".env.local"),
+        path.join(process.cwd(), ".env"),
+      ];
+      for (const ef of envFiles) {
+        if (fs.existsSync(/*turbopackIgnore: true*/ ef)) {
+          const content = fs.readFileSync(/*turbopackIgnore: true*/ ef, "utf-8");
+          const lines = content.split("\n");
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("AUTHORIZED_ADMIN_PHONES=")) {
+              const val = trimmed.replace(/^AUTHORIZED_ADMIN_PHONES=/, "").trim();
+              const unquoted = val.replace(/^["'](.*)["']$/, "$1");
+              unquoted
+                .split(",")
+                .map((p: string) => p.trim())
+                .filter(Boolean)
+                .forEach((p: string) => set.add(p));
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore file read errors
+    }
+  }
+
+  // Always ensure default system phone 9876543210 is authorized
+  const list = Array.from(set);
+  if (!list.some((p) => arePhonesEqual(p, "9876543210"))) {
+    list.push("9876543210");
+  }
+  return list;
+}
+
+/**
  * Validates whether a phone number is authorized for administrator registration.
- * Evaluates against AUTHORIZED_ADMIN_PHONES env variable (always authorizing 9876543210 by default)
- * and optional authorized_admin_phones table in Supabase.
+ * Evaluates against AUTHORIZED_ADMIN_PHONES env variable (including .env.local on disk),
+ * existing registered administrators, and persistent authorized phone records.
  */
 export async function isAuthorizedAdminPhone(
   phone: unknown
@@ -280,26 +339,33 @@ export async function isAuthorizedAdminPhone(
     return { authorized: false, normalizedPhone: "" };
   }
 
-  // 1. Authorized list from environment variable (default includes 9876543210)
-  const envPhonesStr = process.env.AUTHORIZED_ADMIN_PHONES || "9876543210,+919876543210";
-  const authorizedList = envPhonesStr
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  // Always ensure 9876543210 is authorized as specified in requirements
-  if (!authorizedList.some((p) => arePhonesEqual(p, "9876543210"))) {
-    authorizedList.push("9876543210");
-  }
-
-  const isEnvAuthorized = authorizedList.some((p) => arePhonesEqual(p, cleanPhone));
+  // 1. Authorized list from environment variable and .env.local file
+  const envAuthorizedList = getEnvAuthorizedPhones();
+  const isEnvAuthorized = envAuthorizedList.some((p) => arePhonesEqual(p, cleanPhone));
   if (isEnvAuthorized) {
     return { authorized: true, normalizedPhone: cleanPhone };
   }
 
-  // 2. Check Supabase database if configured
+  // 2. Check Supabase database: registered admins and authorized_admin_phones table
   try {
     const { supabaseAdmin } = await import("./supabase");
+
+    // Check existing registered admins
+    const { data: admins } = await supabaseAdmin
+      .from("admins")
+      .select("id, phone")
+      .not("phone", "is", null);
+
+    if (Array.isArray(admins) && admins.length > 0) {
+      const isRegisteredAdminPhone = admins.some((a: { phone?: string }) =>
+        a.phone ? arePhonesEqual(a.phone, cleanPhone) : false
+      );
+      if (isRegisteredAdminPhone) {
+        return { authorized: true, normalizedPhone: cleanPhone };
+      }
+    }
+
+    // Check public.authorized_admin_phones table
     const { data, error } = await supabaseAdmin
       .from("authorized_admin_phones")
       .select("phone");
@@ -343,5 +409,6 @@ export async function isAuthorizedAdminPhone(
 
   return { authorized: false, normalizedPhone: cleanPhone };
 }
+
 
 

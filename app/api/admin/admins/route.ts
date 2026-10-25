@@ -178,3 +178,93 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+/**
+ * DELETE /api/admin/admins
+ * Permanently removes an administrator account.
+ * Requires logged in admin session and enforces peer protection (cannot delete self).
+ */
+export async function DELETE(request: Request) {
+  try {
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { adminId } = body;
+
+    const numericTargetId = sanitizePositiveInt(adminId);
+    if (!numericTargetId) {
+      return NextResponse.json(
+        { error: "A valid numeric Administrator ID is required." },
+        { status: 400 }
+      );
+    }
+
+    // Constraint: You cannot delete your own account (peer protection)
+    if (numericTargetId === Number(session.id)) {
+      return NextResponse.json(
+        { error: "You cannot remove your own administrator account. Another active administrator must perform this action." },
+        { status: 403 }
+      );
+    }
+
+    // Retrieve target admin to check existence
+    const { data: targetAdmin, error: findError } = await supabaseAdmin
+      .from("admins")
+      .select("id, name, email")
+      .eq("id", numericTargetId)
+      .single();
+
+    if (findError || !targetAdmin) {
+      // Fallback try with anon client
+      const { data: anonTarget } = await supabase
+        .from("admins")
+        .select("id, name, email")
+        .eq("id", numericTargetId)
+        .single();
+
+      if (!anonTarget) {
+        return NextResponse.json(
+          { error: "Administrator account not found or already deleted." },
+          { status: 404 }
+        );
+      }
+    }
+
+    const adminName = targetAdmin?.name || `Admin #${numericTargetId}`;
+
+    // Execute deletion from public.admins
+    const { error: deleteError } = await supabaseAdmin
+      .from("admins")
+      .delete()
+      .eq("id", numericTargetId);
+
+    if (deleteError) {
+      // Fallback attempt
+      const { error: fallbackErr } = await supabase
+        .from("admins")
+        .delete()
+        .eq("id", numericTargetId);
+
+      if (fallbackErr) {
+        console.error("Failed to delete admin:", deleteError, fallbackErr);
+        return NextResponse.json(
+          { error: deleteError.message || fallbackErr.message || "Failed to remove administrator account." },
+          { status: 500 }
+        );
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Administrator "${adminName}" has been successfully removed.`,
+      deletedId: numericTargetId,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+

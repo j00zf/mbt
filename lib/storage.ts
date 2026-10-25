@@ -12,6 +12,9 @@ const DATA_DIR = path.join(process.cwd(), "data");
 const SCHOOLS_FILE = path.join(DATA_DIR, "mbt_schools.json");
 const TRACKS_FILE = path.join(DATA_DIR, "mbt_tracks.json");
 const INTERNSHIPS_FILE = path.join(DATA_DIR, "mbt_internships.json");
+const AUTHORIZED_PHONES_FILE = path.join(DATA_DIR, "authorized_admin_phones.json");
+
+import { normalizePhoneNumber, arePhonesEqual } from "./security";
 
 function ensureDirectoryExists() {
   try {
@@ -406,3 +409,99 @@ export function deleteLocalInternship(id: number | string): boolean {
   saveLocalInternships(filtered);
   return filtered.length !== current.length;
 }
+
+// ==========================================
+// AUTHORIZED ADMIN PHONES FALLBACK STORAGE
+// ==========================================
+export interface LocalAuthorizedPhoneItem {
+  id: string | number;
+  phone: string;
+  note: string | null;
+  created_at: string;
+}
+
+let memoryAuthorizedPhones: LocalAuthorizedPhoneItem[] | null = null;
+
+export function getLocalAuthorizedPhones(): LocalAuthorizedPhoneItem[] {
+  if (memoryAuthorizedPhones !== null) {
+    return memoryAuthorizedPhones;
+  }
+
+  ensureDirectoryExists();
+  try {
+    if (fs.existsSync(AUTHORIZED_PHONES_FILE)) {
+      const content = fs.readFileSync(AUTHORIZED_PHONES_FILE, "utf-8");
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        memoryAuthorizedPhones = parsed;
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not read local authorized phones file, using default:", err);
+  }
+
+  const seeded: LocalAuthorizedPhoneItem[] = [
+    {
+      id: "init-7594827137",
+      phone: "7594827137",
+      note: "Primary Administrator Contact",
+      created_at: "2026-10-14T13:00:00.000Z",
+    },
+  ];
+  memoryAuthorizedPhones = seeded;
+  saveLocalAuthorizedPhones(seeded);
+  return seeded;
+}
+
+export function saveLocalAuthorizedPhones(items: LocalAuthorizedPhoneItem[]) {
+  memoryAuthorizedPhones = items;
+  ensureDirectoryExists();
+  try {
+    fs.writeFileSync(AUTHORIZED_PHONES_FILE, JSON.stringify(items, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Failed to write authorized phones file (persisted in memory):", err);
+  }
+}
+
+export function addLocalAuthorizedPhone(item: { phone: string; note?: string | null }): LocalAuthorizedPhoneItem {
+  const current = getLocalAuthorizedPhones();
+  const cleanPhone = normalizePhoneNumber(item.phone);
+  const existing = current.find((p) => arePhonesEqual(p.phone, cleanPhone));
+  if (existing) {
+    if (item.note && item.note !== existing.note) {
+      existing.note = item.note;
+      saveLocalAuthorizedPhones(current);
+    }
+    return existing;
+  }
+
+  const newItem: LocalAuthorizedPhoneItem = {
+    id: `local-${Date.now()}`,
+    phone: cleanPhone,
+    note: item.note || null,
+    created_at: new Date().toISOString(),
+  };
+  current.unshift(newItem);
+  saveLocalAuthorizedPhones(current);
+  return newItem;
+}
+
+export function deleteLocalAuthorizedPhone(phoneOrId: string | number): boolean {
+  const current = getLocalAuthorizedPhones();
+  const filtered = current.filter((p) => {
+    if (typeof phoneOrId === "number" && p.id === phoneOrId) return false;
+    if (typeof phoneOrId === "string") {
+      if (p.id === phoneOrId) return false;
+      if (arePhonesEqual(p.phone, phoneOrId)) return false;
+    }
+    return true;
+  });
+
+  const changed = filtered.length !== current.length;
+  if (changed) {
+    saveLocalAuthorizedPhones(filtered);
+  }
+  return changed;
+}
+

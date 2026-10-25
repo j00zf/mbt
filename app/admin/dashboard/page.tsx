@@ -55,7 +55,7 @@ import {
   DEFAULT_MBT_SCHOOLS,
   DEFAULT_DURATION_MODELS,
 } from "@/lib/supabase";
-import { getSafeHref } from "@/lib/security";
+import { getSafeHref, arePhonesEqual } from "@/lib/security";
 
 interface AdminRecord {
   id: number;
@@ -658,6 +658,12 @@ create policy "Allow all operations for admins" on public.admins for all using (
         throw new Error(data.error || "Failed to authorize phone number.");
       }
       showToast(data.message || `Phone ${newPhone} authorized successfully!`);
+      if (data.item) {
+        setAuthorizedPhones((prev) => [
+          data.item,
+          ...prev.filter((p) => !arePhonesEqual(p.phone, data.item.phone)),
+        ]);
+      }
       setNewPhone("");
       setNewPhoneNote("");
       setIsAddingPhone(false);
@@ -686,6 +692,9 @@ create policy "Allow all operations for admins" on public.admins for all using (
         throw new Error(data.error || "Failed to revoke authorization.");
       }
       showToast("Authorization revoked successfully.");
+      setAuthorizedPhones((prev) =>
+        prev.filter((p) => !arePhonesEqual(p.phone, phone) && p.id !== id)
+      );
       await fetchAuthorizedPhones();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to revoke authorization.";
@@ -726,6 +735,42 @@ create policy "Allow all operations for admins" on public.admins for all using (
       await fetchAdmins();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update admin status.";
+      alert(msg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (adminId: number, adminName: string) => {
+    if (adminId === currentUser?.id) {
+      alert("You cannot remove your own administrator account. Another active administrator must perform this action.");
+      return;
+    }
+
+    if (
+      !confirm(
+        `Are you sure you want to permanently remove administrator "${adminName}"?\n\nThis will delete their administrator account and revoke all dashboard access.`
+      )
+    ) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/admins", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to remove administrator.");
+      }
+      showToast(data.message || `Administrator "${adminName}" removed successfully.`);
+      setAdmins((prev) => prev.filter((a) => a.id !== adminId));
+      await Promise.all([fetchAdmins(), fetchAuthorizedPhones()]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to remove administrator.";
       alert(msg);
     } finally {
       setActionLoading(false);
@@ -3357,36 +3402,47 @@ create policy "Allow all operations for admins" on public.admins for all using (
                             {isSelf ? (
                               <span
                                 className="text-[11px] text-slate-400 italic px-2 py-1 select-none"
-                                title="Peer approval required: you cannot modify your own status"
+                                title="Peer approval required: you cannot modify or remove your own account"
                               >
-                                Self-toggle locked
+                                Self-actions locked
                               </span>
                             ) : (
-                              <button
-                                onClick={() => handleToggleAdminStatus(admin.id, admin.status)}
-                                disabled={actionLoading}
-                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${isActive
-                                  ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300"
-                                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shadow-emerald-600/20"
-                                  }`}
-                                title={
-                                  isActive
-                                    ? "Deactivate this admin account to revoke portal login access"
-                                    : "Activate this admin account to grant portal login access"
-                                }
-                              >
-                                {isActive ? (
-                                  <>
-                                    <UserX className="w-3.5 h-3.5" />
-                                    Deactivate
-                                  </>
-                                ) : (
-                                  <>
-                                    <UserCheck className="w-3.5 h-3.5" />
-                                    Activate Admin
-                                  </>
-                                )}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleToggleAdminStatus(admin.id, admin.status)}
+                                  disabled={actionLoading}
+                                  className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer ${isActive
+                                    ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300"
+                                    : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shadow-emerald-600/20"
+                                    }`}
+                                  title={
+                                    isActive
+                                      ? "Deactivate this admin account to revoke portal login access"
+                                      : "Activate this admin account to grant portal login access"
+                                  }
+                                >
+                                  {isActive ? (
+                                    <>
+                                      <UserX className="w-3.5 h-3.5" />
+                                      Deactivate
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserCheck className="w-3.5 h-3.5" />
+                                      Activate Admin
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveAdmin(admin.id, admin.name)}
+                                  disabled={actionLoading}
+                                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition-all cursor-pointer"
+                                  title={`Permanently delete admin account for ${admin.name}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Remove</span>
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>

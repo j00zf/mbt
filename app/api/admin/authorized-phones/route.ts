@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import { getAdminSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import {
@@ -8,7 +6,13 @@ import {
   sanitizeText,
   containsSqlInjection,
   arePhonesEqual,
+  getEnvAuthorizedPhones,
 } from "@/lib/security";
+import {
+  getLocalAuthorizedPhones,
+  addLocalAuthorizedPhone,
+  deleteLocalAuthorizedPhone,
+} from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,31 +28,6 @@ export interface AuthorizedPhoneItem {
   created_at?: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "authorized_admin_phones.json");
-
-function readLocalAuthorizedPhones(): { id: string; phone: string; note: string | null; created_at: string }[] {
-  try {
-    if (!fs.existsSync(DATA_FILE)) return [];
-    const content = fs.readFileSync(DATA_FILE, "utf-8");
-    const parsed = JSON.parse(content);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalAuthorizedPhones(list: { id: string; phone: string; note: string | null; created_at: string }[]) {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Failed to write authorized phones to disk:", err);
-  }
-}
-
 /**
  * GET /api/admin/authorized-phones
  */
@@ -59,12 +38,12 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. Get existing registered admins to determine registration status
-    let registeredAdmins: { id: number; name: string; email: string; phone?: string | null }[] = [];
+    // 1. Get existing registered admins to determine registration status & include their numbers
+    let registeredAdmins: { id: number; name: string; email: string; phone?: string | null; created_at?: string }[] = [];
     try {
       const { data: adminData } = await supabaseAdmin
         .from("admins")
-        .select("id, name, email, phone");
+        .select("id, name, email, phone, created_at");
       if (adminData) {
         registeredAdmins = adminData;
       }
@@ -72,7 +51,7 @@ export async function GET() {
       // Ignore if column not found
     }
 
-    // 2. Query Supabase table: authorized_admin_phones
+    // 2. Query Supabase table: authorized_admin_phones (if present)
     let dbPhones: { id: number; phone: string; note?: string | null; created_at?: string }[] = [];
     let tableExists = true;
 
@@ -91,32 +70,26 @@ export async function GET() {
       tableExists = false;
     }
 
-    // 3. Query local persistent storage
-    const localPhones = readLocalAuthorizedPhones();
+    // 3. Query local persistent storage (both disk & memory)
+    const localPhones = getLocalAuthorizedPhones();
 
-    // 4. Load environment-authorized phones
-    const envPhonesStr = process.env.AUTHORIZED_ADMIN_PHONES || "9876543210,+919876543210";
-    const envPhoneList = envPhonesStr
-      .split(",")
-      .map((p) => p.trim())
-      .filter(Boolean);
-
-    if (!envPhoneList.some((p) => arePhonesEqual(p, "9876543210"))) {
-      envPhoneList.push("9876543210");
-    }
+    // 4. Load environment-authorized phones (reads .env.local on disk dynamically + process.env)
+    const envPhoneList = getEnvAuthorizedPhones();
 
     // Combine and format the list
     const combined: AuthorizedPhoneItem[] = [];
 
     // Add database phones
     for (const item of dbPhones) {
+      const normalized = normalizePhoneNumber(item.phone);
+      if (!normalized) continue;
       const matchedAdmin = registeredAdmins.find(
-        (a) => a.phone && arePhonesEqual(a.phone, item.phone)
+        (a) => a.phone && arePhonesEqual(a.phone, normalized)
       );
 
       combined.push({
         id: item.id,
-        phone: item.phone,
+        phone: normalized,
         note: item.note || null,
         source: "database",
         isRegistered: Boolean(matchedAdmin),
@@ -128,15 +101,17 @@ export async function GET() {
 
     // Add local phones (if not in combined)
     for (const item of localPhones) {
-      const alreadyPresent = combined.some((c) => arePhonesEqual(c.phone, item.phone));
+      const normalized = normalizePhoneNumber(item.phone);
+      if (!normalized) continue;
+      const alreadyPresent = combined.some((c) => arePhonesEqual(c.phone, normalized));
       if (!alreadyPresent) {
         const matchedAdmin = registeredAdmins.find(
-          (a) => a.phone && arePhonesEqual(a.phone, item.phone)
+          (a) => a.phone && arePhonesEqual(a.phone, normalized)
         );
 
         combined.push({
           id: item.id,
-          phone: item.phone,
+          phone: normalized,
           note: item.note || null,
           source: "local",
           isRegistered: Boolean(matchedAdmin),
@@ -150,6 +125,7 @@ export async function GET() {
     // Add environment phones
     for (const envP of envPhoneList) {
       const normalizedEnv = normalizePhoneNumber(envP);
+      if (!normalizedEnv) continue;
       const alreadyInList = combined.some((c) => arePhonesEqual(c.phone, normalizedEnv));
 
       if (!alreadyInList) {
@@ -169,13 +145,36 @@ export async function GET() {
       }
     }
 
+    // Add any registered admin phone numbers that weren't in the lists
+    for (const admin of registeredAdmins) {
+      if (!admin.phone) continue;
+      const normalizedAdminPhone = normalizePhoneNumber(admin.phone);
+      if (!normalizedAdminPhone) continue;
+
+      const alreadyInList = combined.some((c) => arePhonesEqual(c.phone, normalizedAdminPhone));
+      if (!alreadyInList) {
+        combined.push({
+          id: `admin-${admin.id}`,
+          phone: normalizedAdminPhone,
+          note: `System Administrator (${admin.name})`,
+          source: "database",
+          isRegistered: true,
+          registeredAdminName: admin.name,
+          registeredAdminEmail: admin.email,
+          created_at: admin.created_at,
+        });
+      }
+    }
+
     return NextResponse.json(
       {
         phones: combined,
         tableExists,
       },
       {
-        headers: { "Cache-Control": "no-store, max-age=0" },
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+        },
       }
     );
   } catch (err: unknown) {
@@ -220,22 +219,14 @@ export async function POST(request: Request) {
     }
 
     const cleanNote = note ? sanitizeText(note, 200) : null;
-    const nowIso = new Date().toISOString();
 
-    // 1. Save to local persistent storage immediately
-    const localList = readLocalAuthorizedPhones();
-    const alreadyLocal = localList.some((p) => arePhonesEqual(p.phone, cleanPhone));
-    if (!alreadyLocal) {
-      localList.unshift({
-        id: `local-${Date.now()}`,
-        phone: cleanPhone,
-        note: cleanNote,
-        created_at: nowIso,
-      });
-      writeLocalAuthorizedPhones(localList);
-    }
+    // 1. Save to local persistent storage (memory and data file)
+    const savedLocal = addLocalAuthorizedPhone({
+      phone: cleanPhone,
+      note: cleanNote,
+    });
 
-    // 2. Also attempt to save to Supabase public.authorized_admin_phones
+    // 2. Also attempt to save to Supabase public.authorized_admin_phones (if table exists)
     let dbSuccess = false;
     try {
       const { data: existingRows } = await supabaseAdmin
@@ -262,10 +253,20 @@ export async function POST(request: Request) {
       // Table might not exist yet, local storage took care of it
     }
 
+    const item: AuthorizedPhoneItem = {
+      id: savedLocal.id,
+      phone: cleanPhone,
+      note: cleanNote,
+      source: "local",
+      isRegistered: false,
+      created_at: savedLocal.created_at,
+    };
+
     return NextResponse.json({
       success: true,
       message: `Phone number ${cleanPhone} is now authorized for administrator registration!`,
       phone: cleanPhone,
+      item,
       dbSynced: dbSuccess,
     });
   } catch (err: unknown) {
@@ -294,19 +295,14 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // 1. Delete from local storage
+    // 1. Delete from local storage (both memory and file)
     if (phone) {
-      const cleanPhone = normalizePhoneNumber(phone);
-      const localList = readLocalAuthorizedPhones();
-      const filtered = localList.filter((p) => !arePhonesEqual(p.phone, cleanPhone));
-      writeLocalAuthorizedPhones(filtered);
-    } else if (id && typeof id === "string" && id.startsWith("local-")) {
-      const localList = readLocalAuthorizedPhones();
-      const filtered = localList.filter((p) => p.id !== id);
-      writeLocalAuthorizedPhones(filtered);
+      deleteLocalAuthorizedPhone(phone);
+    } else if (id) {
+      deleteLocalAuthorizedPhone(id);
     }
 
-    // 2. Delete from Supabase
+    // 2. Delete from Supabase public.authorized_admin_phones
     try {
       let query = supabaseAdmin.from("authorized_admin_phones").delete();
       if (id && typeof id === "number") {
@@ -329,3 +325,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
