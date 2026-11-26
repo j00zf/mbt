@@ -238,7 +238,10 @@ export function extractPhoneFromQuery(search: string): string {
  */
 export function normalizePhoneNumber(phone: unknown): string {
   if (typeof phone !== "string") return "";
-  return phone.replace(/[\s\-\(\)\.]/g, "").trim();
+  return phone
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")
+    .replace(/[\s\-\(\)\.]/g, "")
+    .trim();
 }
 
 /**
@@ -382,24 +385,17 @@ export async function isAuthorizedAdminPhone(
     // Database table might not be present, ignore
   }
 
-  // 3. Check persistent storage fallback file (data/authorized_admin_phones.json)
+  // 3. Check persistent storage fallback (file and shared in-memory store)
   if (typeof window === "undefined") {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const fs = require("fs");
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const path = require("path");
-      const filePath = path.join(process.cwd(), "data", "authorized_admin_phones.json");
-      if (fs.existsSync(filePath)) {
-        const raw = fs.readFileSync(filePath, "utf-8");
-        const list = JSON.parse(raw);
-        if (Array.isArray(list)) {
-          const isFileAuthorized = list.some((item: any) =>
-            item && (item.phone ? arePhonesEqual(item.phone, cleanPhone) : arePhonesEqual(item, cleanPhone))
-          );
-          if (isFileAuthorized) {
-            return { authorized: true, normalizedPhone: cleanPhone };
-          }
+      const { getLocalAuthorizedPhones } = await import("./storage");
+      const list = getLocalAuthorizedPhones();
+      if (Array.isArray(list)) {
+        const isLocalAuthorized = list.some((item) =>
+          item && item.phone ? arePhonesEqual(item.phone, cleanPhone) : false
+        );
+        if (isLocalAuthorized) {
+          return { authorized: true, normalizedPhone: cleanPhone };
         }
       }
     } catch {

@@ -420,25 +420,27 @@ export interface LocalAuthorizedPhoneItem {
   created_at: string;
 }
 
-let memoryAuthorizedPhones: LocalAuthorizedPhoneItem[] | null = null;
+const globalForPhones = globalThis as typeof globalThis & {
+  __mbtAuthorizedPhones?: LocalAuthorizedPhoneItem[];
+};
 
 export function getLocalAuthorizedPhones(): LocalAuthorizedPhoneItem[] {
-  if (memoryAuthorizedPhones !== null) {
-    return memoryAuthorizedPhones;
-  }
-
   ensureDirectoryExists();
   try {
     if (fs.existsSync(AUTHORIZED_PHONES_FILE)) {
       const content = fs.readFileSync(AUTHORIZED_PHONES_FILE, "utf-8");
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed)) {
-        memoryAuthorizedPhones = parsed;
+        globalForPhones.__mbtAuthorizedPhones = parsed;
         return parsed;
       }
     }
   } catch (err) {
-    console.warn("Could not read local authorized phones file, using default:", err);
+    console.warn("Could not read local authorized phones file:", err);
+  }
+
+  if (globalForPhones.__mbtAuthorizedPhones) {
+    return globalForPhones.__mbtAuthorizedPhones;
   }
 
   const seeded: LocalAuthorizedPhoneItem[] = [
@@ -449,31 +451,37 @@ export function getLocalAuthorizedPhones(): LocalAuthorizedPhoneItem[] {
       created_at: "2026-10-14T13:00:00.000Z",
     },
   ];
-  memoryAuthorizedPhones = seeded;
+  globalForPhones.__mbtAuthorizedPhones = seeded;
   saveLocalAuthorizedPhones(seeded);
   return seeded;
 }
 
-export function saveLocalAuthorizedPhones(items: LocalAuthorizedPhoneItem[]) {
-  memoryAuthorizedPhones = items;
+export function saveLocalAuthorizedPhones(items: LocalAuthorizedPhoneItem[]): boolean {
+  globalForPhones.__mbtAuthorizedPhones = items;
   ensureDirectoryExists();
   try {
     fs.writeFileSync(AUTHORIZED_PHONES_FILE, JSON.stringify(items, null, 2), "utf-8");
+    return true;
   } catch (err) {
-    console.error("Failed to write authorized phones file (persisted in memory):", err);
+    console.error("Failed to write authorized phones file (persisted in memory only):", err);
+    return false;
   }
 }
 
-export function addLocalAuthorizedPhone(item: { phone: string; note?: string | null }): LocalAuthorizedPhoneItem {
-  const current = getLocalAuthorizedPhones();
+export function addLocalAuthorizedPhone(item: {
+  phone: string;
+  note?: string | null;
+}): { item: LocalAuthorizedPhoneItem; persistedToDisk: boolean } {
+  const current = [...getLocalAuthorizedPhones()];
   const cleanPhone = normalizePhoneNumber(item.phone);
   const existing = current.find((p) => arePhonesEqual(p.phone, cleanPhone));
   if (existing) {
-    if (item.note && item.note !== existing.note) {
-      existing.note = item.note;
-      saveLocalAuthorizedPhones(current);
+    let persistedToDisk = fs.existsSync(AUTHORIZED_PHONES_FILE);
+    if (item.note !== undefined && item.note !== existing.note) {
+      existing.note = item.note ?? null;
+      persistedToDisk = saveLocalAuthorizedPhones(current);
     }
-    return existing;
+    return { item: existing, persistedToDisk };
   }
 
   const newItem: LocalAuthorizedPhoneItem = {
@@ -483,8 +491,8 @@ export function addLocalAuthorizedPhone(item: { phone: string; note?: string | n
     created_at: new Date().toISOString(),
   };
   current.unshift(newItem);
-  saveLocalAuthorizedPhones(current);
-  return newItem;
+  const persistedToDisk = saveLocalAuthorizedPhones(current);
+  return { item: newItem, persistedToDisk };
 }
 
 export function deleteLocalAuthorizedPhone(phoneOrId: string | number): boolean {

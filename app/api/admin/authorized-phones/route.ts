@@ -183,6 +183,16 @@ export async function GET() {
   }
 }
 
+function isMissingTableError(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  return (
+    err.code === "PGRST205" ||
+    err.code === "42P01" ||
+    Boolean(err.message?.includes("does not exist")) ||
+    Boolean(err.message?.includes("schema cache"))
+  );
+}
+
 /**
  * POST /api/admin/authorized-phones
  */
@@ -193,12 +203,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: { phone?: unknown; note?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
+    }
+
     const { phone, note } = body;
 
     if (!phone || typeof phone !== "string") {
       return NextResponse.json(
         { error: "Phone number is required." },
+        { status: 400 }
+      );
+    }
+
+    if (note !== undefined && note !== null && typeof note !== "string") {
+      return NextResponse.json(
+        { error: "Note must be text." },
         { status: 400 }
       );
     }
@@ -220,54 +243,114 @@ export async function POST(request: Request) {
 
     const cleanNote = note ? sanitizeText(note, 200) : null;
 
-    // 1. Save to local persistent storage (memory and data file)
-    const savedLocal = addLocalAuthorizedPhone({
+    // 1. Attempt to save to Supabase public.authorized_admin_phones first
+    let dbSuccess = false;
+    let tableExists = true;
+    let dbErrorMsg: string | null = null;
+    let dbRow: { id: number; phone: string; note?: string | null; created_at?: string } | null = null;
+
+    try {
+      const { data: existingRows, error: selectErr } = await supabaseAdmin
+        .from("authorized_admin_phones")
+        .select("id, phone, note, created_at");
+
+      if (selectErr) {
+        if (isMissingTableError(selectErr)) {
+          tableExists = false;
+        } else {
+          dbErrorMsg = selectErr.message || "Failed to query authorized_admin_phones table.";
+        }
+      } else {
+        const existingRow = (existingRows || []).find((r: { phone: string }) =>
+          arePhonesEqual(r.phone, cleanPhone)
+        );
+        if (existingRow) {
+          dbRow = existingRow;
+          dbSuccess = true;
+        } else {
+          const { data: insertedRow, error: insertErr } = await supabaseAdmin
+            .from("authorized_admin_phones")
+            .insert([
+              {
+                phone: cleanPhone,
+                note: cleanNote,
+              },
+            ])
+            .select("id, phone, note, created_at")
+            .single();
+
+          if (insertErr) {
+            if (isMissingTableError(insertErr)) {
+              tableExists = false;
+            } else {
+              dbErrorMsg = insertErr.message || "Failed to save phone number to database.";
+            }
+          } else {
+            dbRow = insertedRow;
+            dbSuccess = true;
+          }
+        }
+      }
+    } catch (err: unknown) {
+      dbErrorMsg = err instanceof Error ? err.message : "Database connection failed.";
+    }
+
+    // 2. If table exists in Supabase and DB operation failed for a non-missing-table error, report it
+    if (tableExists && !dbSuccess && dbErrorMsg) {
+      return NextResponse.json(
+        { error: dbErrorMsg, tableExists: true, dbSynced: false },
+        { status: 500 }
+      );
+    }
+
+    // 3. Save to local persistent storage (disk + shared memory fallback)
+    const { item: savedLocal, persistedToDisk } = addLocalAuthorizedPhone({
       phone: cleanPhone,
       note: cleanNote,
     });
 
-    // 2. Also attempt to save to Supabase public.authorized_admin_phones (if table exists)
-    let dbSuccess = false;
-    try {
-      const { data: existingRows } = await supabaseAdmin
-        .from("authorized_admin_phones")
-        .select("id, phone");
-
-      const alreadyInDb = existingRows && existingRows.some((r: { phone: string }) => arePhonesEqual(r.phone, cleanPhone));
-      if (!alreadyInDb) {
-        const { error: insertErr } = await supabaseAdmin
-          .from("authorized_admin_phones")
-          .insert([
-            {
-              phone: cleanPhone,
-              note: cleanNote,
-            },
-          ]);
-        if (!insertErr) {
-          dbSuccess = true;
-        }
-      } else {
-        dbSuccess = true;
-      }
-    } catch {
-      // Table might not exist yet, local storage took care of it
+    // If neither Supabase nor local disk persisted it (e.g. serverless read-only filesystem without DB table), fail loudly
+    if (!dbSuccess && !persistedToDisk) {
+      return NextResponse.json(
+        {
+          error:
+            "Could not persist phone number: the 'public.authorized_admin_phones' table has not been created in Supabase yet and local disk storage is read-only. Please run the SQL migration in Supabase.",
+          tableNotCreated: true,
+          tableExists: false,
+          dbSynced: false,
+        },
+        { status: 503 }
+      );
     }
 
-    const item: AuthorizedPhoneItem = {
-      id: savedLocal.id,
-      phone: cleanPhone,
-      note: cleanNote,
-      source: "local",
-      isRegistered: false,
-      created_at: savedLocal.created_at,
-    };
+    const item: AuthorizedPhoneItem = dbRow
+      ? {
+          id: dbRow.id,
+          phone: cleanPhone,
+          note: dbRow.note ?? cleanNote,
+          source: "database",
+          isRegistered: false,
+          created_at: dbRow.created_at,
+        }
+      : {
+          id: savedLocal.id,
+          phone: cleanPhone,
+          note: savedLocal.note ?? cleanNote,
+          source: "local",
+          isRegistered: false,
+          created_at: savedLocal.created_at,
+        };
 
     return NextResponse.json({
       success: true,
-      message: `Phone number ${cleanPhone} is now authorized for administrator registration!`,
+      message: dbSuccess
+        ? `Phone number ${cleanPhone} is now authorized for administrator registration!`
+        : `Phone number ${cleanPhone} authorized locally (create public.authorized_admin_phones in Supabase to sync across deployments).`,
       phone: cleanPhone,
       item,
       dbSynced: dbSuccess,
+      tableExists,
+      tableNotCreated: !tableExists,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
@@ -285,7 +368,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: { id?: unknown; phone?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
+    }
+
     const { id, phone } = body;
 
     if (!id && !phone) {
@@ -296,22 +385,36 @@ export async function DELETE(request: Request) {
     }
 
     // 1. Delete from local storage (both memory and file)
-    if (phone) {
+    if (typeof phone === "string" && phone.trim()) {
       deleteLocalAuthorizedPhone(phone);
-    } else if (id) {
+    }
+    if (typeof id === "string" || typeof id === "number") {
       deleteLocalAuthorizedPhone(id);
     }
 
     // 2. Delete from Supabase public.authorized_admin_phones
     try {
-      let query = supabaseAdmin.from("authorized_admin_phones").delete();
-      if (id && typeof id === "number") {
-        query = query.eq("id", id);
-      } else if (phone) {
+      if (typeof id === "number") {
+        await supabaseAdmin.from("authorized_admin_phones").delete().eq("id", id);
+      } else if (typeof phone === "string" && phone.trim()) {
         const cleanPhone = normalizePhoneNumber(phone);
-        query = query.eq("phone", cleanPhone);
+        const { data: rows } = await supabaseAdmin
+          .from("authorized_admin_phones")
+          .select("id, phone");
+
+        if (Array.isArray(rows) && rows.length > 0) {
+          const matchingIds = rows
+            .filter((r: { id: number; phone: string }) => arePhonesEqual(r.phone, cleanPhone))
+            .map((r: { id: number }) => r.id);
+
+          if (matchingIds.length > 0) {
+            await supabaseAdmin
+              .from("authorized_admin_phones")
+              .delete()
+              .in("id", matchingIds);
+          }
+        }
       }
-      await query;
     } catch {
       // Ignore if table does not exist
     }

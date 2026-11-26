@@ -146,6 +146,9 @@ export default function AdminDashboardPage() {
   const [newPhoneNote, setNewPhoneNote] = useState("");
   const [isAddingPhone, setIsAddingPhone] = useState(false);
   const [phoneActionLoading, setPhoneActionLoading] = useState(false);
+  const [phoneFormError, setPhoneFormError] = useState<string | null>(null);
+  const [phonesTableMissing, setPhonesTableMissing] = useState(false);
+  const [copiedPhonesSql, setCopiedPhonesSql] = useState(false);
   const [copiedInvitePhone, setCopiedInvitePhone] = useState<string | null>(null);
   const [internships, setInternships] = useState<Internship[]>([]);
   const [schools, setSchools] = useState<ProgrammeSchool[]>([]);
@@ -475,6 +478,18 @@ on conflict (model_code) do nothing;
 alter table public.duration_models enable row level security;
 create policy "Allow all operations for duration_models" on public.duration_models for all using (true) with check (true);`;
 
+  const authorizedPhonesTableSql = `create table if not exists public.authorized_admin_phones (
+  id bigint generated always as identity not null,
+  phone text not null unique,
+  note text null,
+  created_at timestamp with time zone null default timezone ('utc'::text, now()),
+  constraint authorized_admin_phones_pkey primary key (id)
+) TABLESPACE pg_default;
+
+alter table public.authorized_admin_phones enable row level security;
+drop policy if exists "Allow all operations for authorized_admin_phones" on public.authorized_admin_phones;
+create policy "Allow all operations for authorized_admin_phones" on public.authorized_admin_phones for all using (true) with check (true);`;
+
   const adminsTableSql = `create table if not exists public.admins (
   id bigint generated always as identity not null,
   name text not null,
@@ -496,7 +511,9 @@ update public.admins set status = 'active' where status is null;
 
 alter table public.admins enable row level security;
 drop policy if exists "Allow all operations for admins" on public.admins;
-create policy "Allow all operations for admins" on public.admins for all using (true) with check (true);`;
+create policy "Allow all operations for admins" on public.admins for all using (true) with check (true);
+
+${authorizedPhonesTableSql}`;
 
   // Init Data & Check URL param for tab
   useEffect(() => {
@@ -634,6 +651,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
       if (res.ok) {
         const data = await res.json();
         setAuthorizedPhones(data.phones || []);
+        setPhonesTableMissing(data.tableExists === false);
       }
     } catch (err) {
       console.error("Failed to fetch authorized phones:", err);
@@ -642,7 +660,9 @@ create policy "Allow all operations for admins" on public.admins for all using (
 
   const handleAddAuthorizedPhone = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPhoneFormError(null);
     if (!newPhone.trim()) {
+      setPhoneFormError("Please enter a valid phone number.");
       showToast("Please enter a phone number.");
       return;
     }
@@ -654,6 +674,9 @@ create policy "Allow all operations for admins" on public.admins for all using (
         body: JSON.stringify({ phone: newPhone.trim(), note: newPhoneNote.trim() || null }),
       });
       const data = await res.json();
+      if (data.tableNotCreated || data.tableExists === false || data.dbSynced === false) {
+        setPhonesTableMissing(true);
+      }
       if (!res.ok) {
         throw new Error(data.error || "Failed to authorize phone number.");
       }
@@ -670,7 +693,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
       await fetchAuthorizedPhones();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to authorize phone number.";
-      alert(msg);
+      setPhoneFormError(msg);
     } finally {
       setPhoneActionLoading(false);
     }
@@ -3302,13 +3325,20 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     >
                       <RefreshCw className={`w-4 h-4 ${actionLoading ? "animate-spin" : ""}`} />
                     </button>
-                    <Link
-                      href="/admin/register"
-                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm shadow-emerald-600/20"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhoneFormError(null);
+                        setIsAddingPhone(true);
+                        document
+                          .getElementById("authorized-phones-section")
+                          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm shadow-emerald-600/20 cursor-pointer"
                     >
                       <UserPlus className="w-4 h-4" />
-                      Register New Admin
-                    </Link>
+                      Authorize New Admin
+                    </button>
                   </div>
                 </div>
 
@@ -3453,7 +3483,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
               </div>
 
               {/* Authorized Registration Phone Numbers Card */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+              <div
+                id="authorized-phones-section"
+                className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs"
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
                   <div>
                     <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
@@ -3477,7 +3510,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                       <RefreshCw className={`w-4 h-4 ${phoneActionLoading ? "animate-spin" : ""}`} />
                     </button>
                     <button
-                      onClick={() => setIsAddingPhone(!isAddingPhone)}
+                      onClick={() => {
+                        setPhoneFormError(null);
+                        setIsAddingPhone(!isAddingPhone);
+                      }}
                       className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm shadow-emerald-600/20 cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
@@ -3485,6 +3521,33 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     </button>
                   </div>
                 </div>
+
+                {phonesTableMissing && (
+                  <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Supabase table &quot;public.authorized_admin_phones&quot; not created yet</p>
+                        <p className="text-amber-800 mt-0.5 leading-relaxed">
+                          Run the SQL migration in your Supabase SQL Editor so newly authorized phone numbers persist in the database across deployments.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(authorizedPhonesTableSql);
+                        setCopiedPhonesSql(true);
+                        setTimeout(() => setCopiedPhonesSql(false), 2000);
+                        showToast("Copied public.authorized_admin_phones SQL!");
+                      }}
+                      className="inline-flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition-colors cursor-pointer"
+                    >
+                      {copiedPhonesSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedPhonesSql ? "Copied SQL" : "Copy Table SQL"}</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Inline Add Phone Form */}
                 {isAddingPhone && (
@@ -3498,6 +3561,12 @@ create policy "Allow all operations for admins" on public.admins for all using (
                         Authorize New Administrator Telephone Number
                       </h4>
                     </div>
+                    {phoneFormError && (
+                      <div className="mb-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <span>{phoneFormError}</span>
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-600 mb-1">
@@ -3510,7 +3579,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                             required
                             placeholder="e.g. 7594827137 or +917594827137"
                             value={newPhone}
-                            onChange={(e) => setNewPhone(e.target.value)}
+                            onChange={(e) => {
+                              setNewPhone(e.target.value);
+                              if (phoneFormError) setPhoneFormError(null);
+                            }}
                             className="w-full bg-white border border-slate-200 focus:border-emerald-600 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 outline-none font-mono"
                           />
                         </div>
@@ -3531,7 +3603,10 @@ create policy "Allow all operations for admins" on public.admins for all using (
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
-                        onClick={() => setIsAddingPhone(false)}
+                        onClick={() => {
+                          setPhoneFormError(null);
+                          setIsAddingPhone(false);
+                        }}
                         className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-white text-xs font-medium cursor-pointer"
                       >
                         Cancel
@@ -3642,7 +3717,7 @@ create policy "Allow all operations for admins" on public.admins for all using (
                               <ExternalLink className="w-3.5 h-3.5" />
                             </Link>
 
-                            {!isEnv && (
+                            {!isEnv && !String(item.id || "").startsWith("admin-") && (
                               <button
                                 onClick={() => handleRevokePhone(item.phone, item.id)}
                                 disabled={phoneActionLoading}
@@ -3665,17 +3740,17 @@ create policy "Allow all operations for admins" on public.admins for all using (
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Database className="w-4 h-4 text-emerald-400" />
-                    <span className="font-bold text-sm text-slate-200">Supabase SQL Migration for Admins Table</span>
+                    <span className="font-bold text-sm text-slate-200">Supabase SQL Migration for Admins &amp; Authorized Phones</span>
                   </div>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        `alter table public.admins add column if not exists phone text;\nalter table public.admins add column if not exists status text not null default 'inactive'::text;\nupdate public.admins set status = 'active' where status is null;`
+                        `alter table public.admins add column if not exists phone text;\nalter table public.admins add column if not exists status text not null default 'inactive'::text;\nupdate public.admins set status = 'active' where status is null;\n\n${authorizedPhonesTableSql}`
                       );
                       setCopiedAdminSql(true);
                       setTimeout(() => setCopiedAdminSql(false), 2000);
                     }}
-                    className="inline-flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                    className="inline-flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
                   >
                     {copiedAdminSql ? (
                       <>
@@ -3694,7 +3769,10 @@ alter table public.admins add column if not exists phone text;
 alter table public.admins add column if not exists status text not null default 'inactive'::text;
 
 -- Activate existing legacy administrators so they retain access
-update public.admins set status = 'active' where status is null;`}
+update public.admins set status = 'active' where status is null;
+
+-- Create authorized_admin_phones table for persistent phone invites
+${authorizedPhonesTableSql}`}
                 </pre>
               </div>
             </div>
