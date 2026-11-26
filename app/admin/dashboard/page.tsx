@@ -1380,11 +1380,28 @@ ${authorizedPhonesTableSql}`;
       app.degree.toLowerCase().includes(query) ||
       app.phone.includes(query);
 
-    const matchesStatus = appStatusFilter === "all" || app.status === appStatusFilter;
+    const matchesStatus =
+      appStatusFilter === "all" ||
+      app.status === appStatusFilter ||
+      (appStatusFilter === "accepted" && app.status === "selected");
     const matchesSchool = appSchoolFilter === "all" || app.school_code === appSchoolFilter;
 
     return matchesSearch && matchesStatus && matchesSchool;
   });
+
+  const getFilteredApplicationsFilename = () => {
+    const parts = ["mbt_applicants"];
+    if (appStatusFilter !== "all") {
+      parts.push(appStatusFilter);
+    }
+    if (appSchoolFilter !== "all") {
+      parts.push(`domain_${appSchoolFilter.toLowerCase()}`);
+    }
+    if (appSearchQuery.trim()) {
+      parts.push("search");
+    }
+    return parts.length === 1 ? "mbt_all_student_applicants" : parts.join("_");
+  };
 
   // Filtered shortlisted applications
   const filteredShortlisted = applications
@@ -2361,6 +2378,17 @@ ${authorizedPhonesTableSql}`;
                         </option>
                       ))}
                     </select>
+
+                    <button
+                      type="button"
+                      onClick={() => exportToExcel(filteredApplications, getFilteredApplicationsFilename())}
+                      disabled={filteredApplications.length === 0}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-xs shadow-emerald-600/20 cursor-pointer"
+                      title={`Download ${filteredApplications.length} filtered applicant(s) as Excel CSV`}
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Export Filtered ({filteredApplications.length})</span>
+                    </button>
 
                     <button
                       onClick={fetchApplications}
